@@ -32,6 +32,7 @@ const ICONS = {
   bell: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   upload: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
   edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  printer: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>`,
   trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
 };
 
@@ -60,6 +61,31 @@ function getStatusLabel(status) {
   return map[status] || status;
 }
 
+function isSharedSubcategory(sub) {
+  if (!sub) return false;
+  const s = String(sub).trim().toLowerCase();
+  return s.includes("ใช้ร่วมกัน") || 
+         s.includes("ใช้ได้ทุกประเภท") || 
+         s.includes("ทั่วไป") || 
+         s.includes("ทุกประเภท") ||
+         s === "all";
+}
+
+function matchesSubcategory(docSub, targetSub) {
+  if (!targetSub || targetSub === "__all") return true;
+  if (!docSub) return false;
+  // 1. ถ้าตรงกับหมวดย่อยที่คลิกเลือก
+  if (docSub === targetSub) return true;
+  // 2. ถ้าเอกสารนี้ระบุเป็น "ใช้ได้ทุกประเภท / เอกสารทั่วไป / ใช้ร่วมกัน" ให้แสดงในทุกหมวดย่อยเสมอ!
+  if (isSharedSubcategory(docSub)) return true;
+  // 3. ถ้าระบุหลายหมวดย่อยคั่นด้วยเครื่องหมายจุลภาค (,)
+  if (docSub.includes(",")) {
+    const list = docSub.split(",").map(s => s.trim());
+    return list.includes(targetSub) || list.some(s => isSharedSubcategory(s));
+  }
+  return false;
+}
+
 // ========================
 // Get filtered documents
 // ========================
@@ -71,9 +97,9 @@ function getFilteredDocuments() {
     docs = docs.filter(d => d.category_id === state.activeCategory);
   }
 
-  // Filter by subcategory
+  // Filter by subcategory (รองรับเอกสารใช้ร่วมกันทุกประเภทรถ)
   if (state.activeSubcategory) {
-    docs = docs.filter(d => d.subcategory === state.activeSubcategory);
+    docs = docs.filter(d => matchesSubcategory(d.subcategory, state.activeSubcategory));
   }
 
   // Search
@@ -81,10 +107,10 @@ function getFilteredDocuments() {
     const q = state.searchQuery.trim().toLowerCase();
     docs = docs.filter(d =>
       d.title.toLowerCase().includes(q) ||
-      d.subcategory.toLowerCase().includes(q) ||
-      d.changelog_summary.toLowerCase().includes(q) ||
-      d.doc_id.toLowerCase().includes(q) ||
-      d.version.toLowerCase().includes(q)
+      (d.subcategory && d.subcategory.toLowerCase().includes(q)) ||
+      (d.changelog_summary && d.changelog_summary.toLowerCase().includes(q)) ||
+      (d.doc_id && d.doc_id.toLowerCase().includes(q)) ||
+      (d.version && d.version.toLowerCase().includes(q))
     );
   }
 
@@ -130,7 +156,13 @@ function openUploadForCategory(catId = null, subcategory = null) {
         subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
         const cat = CATEGORIES.find(c => c.id === catId);
         if (cat && Array.isArray(cat.subcategories)) {
+          const sharedOpt = document.createElement("option");
+          sharedOpt.value = "ใช้ได้ทุกประเภท / เอกสารทั่วไป";
+          sharedOpt.textContent = "🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)";
+          subSelect.appendChild(sharedOpt);
+
           cat.subcategories.forEach(sub => {
+            if (sub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป") return;
             const opt = document.createElement("option");
             opt.value = sub;
             opt.textContent = sub;
@@ -348,7 +380,9 @@ function renderDocuments() {
       <div class="doc-header">
         <div class="doc-title-area">
           <div class="doc-title">${doc.title}</div>
-          <div class="doc-sub">${doc.subcategory}</div>
+          ${isSharedSubcategory(doc.subcategory)
+            ? `<div style="margin-top:2px"><span class="doc-sub-shared">🌟 ${doc.subcategory || 'ใช้ร่วมกันทุกประเภท'}</span></div>`
+            : `<div class="doc-sub">${doc.subcategory}</div>`}
         </div>
         <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
       </div>
@@ -362,6 +396,9 @@ function renderDocuments() {
         <div class="doc-actions">
           <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
             ${icon("edit")} แก้ไข
+          </button>
+          <button class="doc-action-btn print-btn" data-docid="${doc.doc_id}" title="พิมพ์เอกสารนี้">
+            ${icon("printer")} พิมพ์
           </button>
           <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
             ${icon("download")} ดาวน์โหลด
@@ -377,6 +414,18 @@ function renderDocuments() {
       e.stopPropagation();
       const docId = btn.dataset.docid;
       openEditModal(docId);
+    });
+  });
+
+  // Print button handler
+  container.querySelectorAll(".print-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) {
+        await triggerDocumentPrint(doc);
+      }
     });
   });
 
@@ -960,7 +1009,13 @@ function initUploadModal() {
     if (catId) {
       const cat = CATEGORIES.find(c => c.id === catId);
       if (cat && Array.isArray(cat.subcategories) && cat.subcategories.length > 0) {
+        const sharedOpt = document.createElement("option");
+        sharedOpt.value = "ใช้ได้ทุกประเภท / เอกสารทั่วไป";
+        sharedOpt.textContent = "🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)";
+        subSelect.appendChild(sharedOpt);
+
         cat.subcategories.forEach(sub => {
+          if (sub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป") return;
           const opt = document.createElement("option");
           opt.value = sub;
           opt.textContent = sub;
@@ -1471,12 +1526,17 @@ function updateEditSubcategories(catId, selectedSub = null) {
   if (!subSelect) return;
   const cat = CATEGORIES.find(c => c.id === catId);
   if (!cat || !Array.isArray(cat.subcategories) || cat.subcategories.length === 0) {
-    subSelect.innerHTML = '<option value="">— ไม่มีหมวดย่อย —</option>';
+    subSelect.innerHTML = '<option value="ใช้ได้ทุกประเภท / เอกสารทั่วไป">🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)</option>';
     return;
   }
-  subSelect.innerHTML = cat.subcategories.map(sub =>
-    `<option value="${sub}" ${sub === selectedSub ? 'selected' : ''}>${sub}</option>`
-  ).join("");
+  const isSelectedShared = selectedSub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป" || isSharedSubcategory(selectedSub);
+  const sharedOption = `<option value="ใช้ได้ทุกประเภท / เอกสารทั่วไป" ${isSelectedShared ? 'selected' : ''}>🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)</option>`;
+  const otherOptions = cat.subcategories
+    .filter(sub => sub !== "ใช้ได้ทุกประเภท / เอกสารทั่วไป")
+    .map(sub => `<option value="${sub}" ${sub === selectedSub ? 'selected' : ''}>${sub}</option>`)
+    .join("");
+
+  subSelect.innerHTML = sharedOption + otherOptions;
 }
 
 function openEditModal(docId) {
@@ -2412,6 +2472,9 @@ function renderAIDocuments(docs) {
           <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
             ${icon("edit")} แก้ไข
           </button>
+          <button class="doc-action-btn print-btn" data-docid="${doc.doc_id}" title="พิมพ์เอกสารนี้">
+            ${icon("printer")} พิมพ์
+          </button>
           <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
             ${icon("download")} ดาวน์โหลด
           </button>
@@ -2426,6 +2489,18 @@ function renderAIDocuments(docs) {
       e.stopPropagation();
       const docId = btn.dataset.docid;
       openEditModal(docId);
+    });
+  });
+
+  // Print button handler
+  container.querySelectorAll(".print-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) {
+        await triggerDocumentPrint(doc);
+      }
     });
   });
 
@@ -2562,6 +2637,54 @@ async function triggerDocumentDownload(doc) {
     return true;
   } catch (err) {
     console.error("Download error:", err);
+    return false;
+  }
+}
+
+async function triggerDocumentPrint(doc) {
+  try {
+    let fileUrl = null;
+    let isTempUrl = false;
+
+    // 0. ถ้ามี Public Cloud URL จากคลาวด์ ให้เปิดพิมพ์โดยตรง
+    if (doc.download_url && (doc.download_url.startsWith("http://") || doc.download_url.startsWith("https://"))) {
+      fileUrl = doc.download_url;
+    } else {
+      // 1. ตรวจสอบใน IndexedDB เครื่อง
+      const record = await getFileFromDB(doc.doc_id);
+      if (record && record.data) {
+        fileUrl = URL.createObjectURL(record.data);
+        isTempUrl = true;
+      } else {
+        // 2. ถ้าไม่มีใน IndexedDB ให้เปิดจากโฟลเดอร์ files/
+        fileUrl = doc.download_url && doc.download_url !== "#" ? doc.download_url : `files/${doc.file_name || doc.title + '.pdf'}`;
+      }
+    }
+
+    showToast(`🖨️ กำลังเปิดหน้าพิมพ์เอกสาร "${doc.title}"`, "info");
+
+    // เปิดหน้าต่างใหม่เพื่อแสดงเอกสารและพิมพ์
+    const printWindow = window.open(fileUrl, "_blank");
+    if (printWindow) {
+      printWindow.focus();
+      printWindow.onload = () => {
+        setTimeout(() => {
+          try {
+            printWindow.print();
+          } catch (e) {
+            console.log("Browser native viewer print");
+          }
+        }, 600);
+      };
+    }
+
+    if (isTempUrl) {
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 60000);
+    }
+    return true;
+  } catch (err) {
+    console.error("Print error:", err);
+    showToast("เกิดข้อผิดพลาดในการพิมพ์เอกสาร", "error");
     return false;
   }
 }
