@@ -442,21 +442,11 @@ function updateBranchBadgeUI(branch) {
   }
 }
 
-function populateLoginBranchSelect() {
-  const select = $("#login-branch-select");
-  if (!select || typeof BRANCHES === "undefined") return;
-  select.innerHTML = '<option value="">— เลือกสาขาจากรายชื่อ —</option>' +
-    BRANCHES.map(b => `<option value="${b.code}">${b.name} (${b.code})</option>`).join("");
-}
-
 function openLoginModal(canClose = false) {
   const modal = $("#login-modal");
   if (!modal) return;
 
-  populateLoginBranchSelect();
-
   const codeInput = $("#login-branch-code");
-  const select = $("#login-branch-select");
   const preview = $("#login-branch-preview");
   const submitBtn = $("#btn-login-submit");
   const closeBtn = $("#login-modal-close");
@@ -471,7 +461,6 @@ function openLoginModal(canClose = false) {
     codeInput.value = "";
     codeInput.classList.remove("input-valid", "input-invalid");
   }
-  if (select) select.value = "";
   if (preview) {
     preview.style.display = "none";
     preview.classList.remove("valid", "invalid");
@@ -520,7 +509,6 @@ function updateLoginDetection(code) {
   const previewName = $("#login-preview-name");
   const previewCode = $("#login-preview-code");
   const submitBtn = $("#btn-login-submit");
-  const select = $("#login-branch-select");
   const codeInput = $("#login-branch-code");
   const statusIcon = $("#login-status-icon");
   const statusHint = $("#login-status-hint");
@@ -569,10 +557,6 @@ function updateLoginDetection(code) {
     if (previewName) previewName.textContent = matched.name;
     if (previewCode) previewCode.textContent = `รหัส OC: ${matched.code}${matched.province ? ' • ' + matched.province : ''}`;
 
-    if (select && select.value !== matched.code) {
-      select.value = matched.code;
-    }
-
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.className = "login-submit-btn btn-active";
@@ -599,8 +583,6 @@ function updateLoginDetection(code) {
     if (previewName) previewName.textContent = `รหัส "${clean}" ไม่สามารถเข้าใช้งานได้`;
     if (previewCode) previewCode.textContent = "เฉพาะ 15 สาขาที่ลงทะเบียนไว้เท่านั้นที่สามารถเข้าใช้งานได้";
 
-    if (select) select.value = "";
-
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.className = "login-submit-btn btn-disabled";
@@ -611,7 +593,6 @@ function updateLoginDetection(code) {
 
 function initBranchAuth() {
   const codeInput = $("#login-branch-code");
-  const select = $("#login-branch-select");
   const submitBtn = $("#btn-login-submit");
   const closeBtn = $("#login-modal-close");
   const badge = $("#branch-user-badge");
@@ -634,15 +615,6 @@ function initBranchAuth() {
       if (e.key === "Enter") {
         e.preventDefault();
         submitLogin();
-      }
-    });
-  }
-
-  if (select) {
-    select.addEventListener("change", (e) => {
-      if (e.target.value) {
-        if (codeInput) codeInput.value = e.target.value;
-        updateLoginDetection(e.target.value);
       }
     });
   }
