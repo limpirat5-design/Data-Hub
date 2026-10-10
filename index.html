@@ -311,55 +311,67 @@
   <!-- ===== Branch Login Modal ===== -->
   <div class="modal-overlay" id="login-modal" aria-hidden="true">
     <div class="modal-container login-modal-container">
-      <div class="modal-header">
-        <div class="modal-header-left">
-          <div class="modal-icon-wrap" style="background:#e0f2fe;color:#0284c7">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-          </div>
-          <div>
-            <h2 class="modal-title" id="login-modal-title">เข้าสู่ระบบสาขา</h2>
-            <p class="modal-subtitle">ระบุรหัสสาขา (OC) เพื่อเข้าใช้งานระบบเอกสาร</p>
-          </div>
+      <!-- Animated Top Gradient Bar -->
+      <div class="login-top-bar"></div>
+
+      <!-- Close button (shown when switching branch) -->
+      <button class="modal-close-btn login-modal-close" id="login-modal-close" aria-label="ปิด" style="display:none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+
+      <!-- Center Avatar Ring -->
+      <div class="login-avatar-wrap">
+        <div class="login-avatar-ring">
+          <span class="login-avatar-icon">🏢</span>
         </div>
-        <button class="modal-close-btn" id="login-modal-close" aria-label="ปิด" style="display:none">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        </button>
       </div>
 
-      <div class="upload-form" style="margin: 0 24px 20px; gap: 14px;">
+      <div class="login-header-text">
+        <h2 class="login-title-text" id="login-modal-title">เข้าสู่ระบบสาขา</h2>
+        <p class="login-sub-text">กรุณาระบุรหัสสาขา (OC 5 หลัก) เพื่อเข้าใช้งานระบบเอกสาร</p>
+      </div>
+
+      <div class="login-form-body">
         <div class="upload-form-row">
-          <label class="upload-label" style="font-size:14px;font-weight:600">รหัสสาขา (OC):</label>
-          <input type="text"
-                 class="upload-input"
-                 id="login-branch-code"
-                 placeholder="ใส่รหัส เช่น 20412"
-                 inputmode="numeric"
-                 maxlength="10"
-                 style="font-size:17px;font-weight:700;letter-spacing:1px;height:46px;">
+          <label class="upload-label" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>รหัสสาขา (OC 5 หลัก):</span>
+            <span id="login-status-hint" style="font-size:12px;font-weight:500;color:var(--text-tertiary)">พิมพ์ 5 หลัก เช่น 20412</span>
+          </label>
+          <div class="login-input-wrap">
+            <span class="login-input-icon-left">🔑</span>
+            <input type="text"
+                   class="login-input-field"
+                   id="login-branch-code"
+                   placeholder="20412"
+                   inputmode="numeric"
+                   maxlength="10"
+                   autocomplete="off">
+            <span class="login-input-status-icon" id="login-status-icon"></span>
+          </div>
         </div>
 
-        <!-- Live Detection Preview -->
+        <!-- Detection Status Box -->
         <div class="login-branch-preview" id="login-branch-preview" style="display:none">
-          <div class="login-preview-badge">✓ ตรวจพบข้อมูลสาขา</div>
+          <div class="login-preview-badge" id="login-preview-badge">✓ ตรวจพบข้อมูลสาขา</div>
           <div class="login-preview-name" id="login-preview-name">-</div>
           <div class="login-preview-code" id="login-preview-code">-</div>
         </div>
 
         <div class="upload-form-row">
-          <label class="upload-label" style="font-size:12.5px;color:var(--text-tertiary)">หรือเลือกจากรายชื่อสาขา:</label>
-          <select class="upload-select" id="login-branch-select" style="font-size:14px;height:42px;">
+          <label class="upload-label" style="font-size:12.5px;color:var(--text-tertiary)">หรือเลือกจากรายชื่อ 15 สาขาที่ลงทะเบียนไว้:</label>
+          <select class="upload-select" id="login-branch-select" style="font-size:14px;height:44px;border-radius:12px">
             <option value="">— เลือกสาขาจากรายชื่อ —</option>
           </select>
         </div>
 
-        <div style="margin-top:6px">
-          <button type="button" class="modal-btn-primary" id="btn-login-submit" style="width:100%;justify-content:center;padding:12px;font-size:15px;min-height:46px;" disabled>
-            🚀 เข้าสู่ระบบ
+        <div style="margin-top:8px">
+          <button type="button" class="login-submit-btn btn-disabled" id="btn-login-submit" disabled>
+            🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน
           </button>
         </div>
 
-        <div style="text-align:center;margin-top:4px">
-          <span style="font-size:12px;color:var(--text-tertiary)">ระบบจะจำสาขาที่เข้าสู่ระบบไว้ในเครื่องนี้อัตโนมัติ</span>
+        <div class="login-footer-security">
+          <span>🔒 ปลอดภัย • เฉพาะสาขาที่ลงทะเบียนไว้เท่านั้นที่สามารถเข้าใช้งานได้</span>
         </div>
       </div>
     </div>

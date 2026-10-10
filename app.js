@@ -475,12 +475,26 @@ function openLoginModal(canClose = true) {
     if (select) select.value = currentBranch.code;
     updateLoginDetection(currentBranch.code);
   } else {
-    if (codeInput) codeInput.value = "";
+    if (codeInput) {
+      codeInput.value = "";
+      codeInput.classList.remove("input-valid", "input-invalid");
+    }
     if (select) select.value = "";
-    if (preview) preview.style.display = "none";
+    if (preview) {
+      preview.style.display = "none";
+      preview.classList.remove("valid", "invalid");
+    }
+    const statusIcon = $("#login-status-icon");
+    const statusHint = $("#login-status-hint");
+    if (statusIcon) statusIcon.innerHTML = "";
+    if (statusHint) {
+      statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
+      statusHint.style.color = "var(--text-tertiary)";
+    }
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+      submitBtn.className = "login-submit-btn btn-disabled";
+      submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
     }
   }
 
@@ -497,20 +511,46 @@ function closeLoginModal() {
 
 let detectedBranchTemp = null;
 
+function triggerLoginShake() {
+  const container = document.querySelector(".login-modal-container");
+  if (container) {
+    container.classList.remove("shake-anim");
+    void container.offsetWidth; // trigger DOM reflow for CSS animation restart
+    container.classList.add("shake-anim");
+    setTimeout(() => {
+      container.classList.remove("shake-anim");
+    }, 450);
+  }
+}
+
 function updateLoginDetection(code) {
   const preview = $("#login-branch-preview");
+  const previewBadge = $("#login-preview-badge");
   const previewName = $("#login-preview-name");
   const previewCode = $("#login-preview-code");
   const submitBtn = $("#btn-login-submit");
   const select = $("#login-branch-select");
+  const codeInput = $("#login-branch-code");
+  const statusIcon = $("#login-status-icon");
+  const statusHint = $("#login-status-hint");
 
   const clean = (code || "").trim();
   if (!clean) {
     detectedBranchTemp = null;
-    if (preview) preview.style.display = "none";
+    if (codeInput) codeInput.classList.remove("input-valid", "input-invalid");
+    if (statusIcon) statusIcon.innerHTML = "";
+    if (statusHint) {
+      statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
+      statusHint.style.color = "var(--text-tertiary)";
+    }
+    if (preview) {
+      preview.style.display = "none";
+      preview.classList.remove("valid", "invalid");
+    }
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+      submitBtn.className = "login-submit-btn btn-disabled";
+      submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
     }
     return;
   }
@@ -518,32 +558,62 @@ function updateLoginDetection(code) {
   const matched = typeof findBranchByCode === "function" ? findBranchByCode(clean) : null;
 
   if (matched) {
+    // รหัสสาขาถูกต้อง อยู่ใน 15 สาขาที่บันทึกไว้
     detectedBranchTemp = matched;
-    if (previewName) previewName.textContent = matched.name;
-    if (previewCode) previewCode.textContent = `รหัส OC: ${matched.code}`;
-    if (preview) preview.style.display = "block";
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${matched.name})`;
+    if (codeInput) {
+      codeInput.classList.add("input-valid");
+      codeInput.classList.remove("input-invalid");
     }
+    if (statusIcon) statusIcon.innerHTML = '<span style="color:#10b981;font-weight:700">✓</span>';
+    if (statusHint) {
+      statusHint.textContent = `✓ รหัสถูกต้อง (${matched.province || "สาขาในระบบ"})`;
+      statusHint.style.color = "#059669";
+    }
+    if (preview) {
+      preview.classList.add("valid");
+      preview.classList.remove("invalid");
+      preview.style.display = "block";
+    }
+    if (previewBadge) previewBadge.innerHTML = "✓ ตรวจพบสาขาที่ลงทะเบียนไว้";
+    if (previewName) previewName.textContent = matched.name;
+    if (previewCode) previewCode.textContent = `รหัส OC: ${matched.code}${matched.province ? ' • ' + matched.province : ''}`;
+
     if (select && select.value !== matched.code) {
       select.value = matched.code;
     }
-  } else if (clean.length >= 3) {
-    detectedBranchTemp = { code: clean, name: `สาขารหัส ${clean}` };
-    if (previewName) previewName.textContent = detectedBranchTemp.name;
-    if (previewCode) previewCode.textContent = `รหัส OC: ${clean}`;
-    if (preview) preview.style.display = "block";
+
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${clean})`;
+      submitBtn.className = "login-submit-btn btn-active";
+      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${matched.name})`;
     }
   } else {
+    // ไม่ใช่รหัสสาขาที่บันทึกไว้ -> ไม่อนุญาตให้ล็อกอินเด็ดขาด
     detectedBranchTemp = null;
-    if (preview) preview.style.display = "none";
+    if (codeInput) {
+      codeInput.classList.add("input-invalid");
+      codeInput.classList.remove("input-valid");
+    }
+    if (statusIcon) statusIcon.innerHTML = '<span style="color:#ef4444;font-weight:700">✕</span>';
+    if (statusHint) {
+      statusHint.textContent = "✕ ไม่พบรหัสในระบบ";
+      statusHint.style.color = "#dc2626";
+    }
+    if (preview) {
+      preview.classList.remove("valid");
+      preview.classList.add("invalid");
+      preview.style.display = "block";
+    }
+    if (previewBadge) previewBadge.innerHTML = "⚠️ ไม่พบรหัสสาขานี้ในระบบ";
+    if (previewName) previewName.textContent = `รหัส "${clean}" ไม่สามารถเข้าใช้งานได้`;
+    if (previewCode) previewCode.textContent = "เฉพาะ 15 สาขาที่ลงทะเบียนไว้เท่านั้นที่สามารถเข้าใช้งานได้";
+
+    if (select) select.value = "";
+
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+      submitBtn.className = "login-submit-btn btn-disabled";
+      submitBtn.innerHTML = "🔒 รหัสไม่ถูกต้อง ไม่สามารถเข้าใช้งานได้";
     }
   }
 }
@@ -570,7 +640,7 @@ function initBranchAuth() {
     });
 
     codeInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && detectedBranchTemp) {
+      if (e.key === "Enter") {
         e.preventDefault();
         submitLogin();
       }
@@ -587,10 +657,16 @@ function initBranchAuth() {
   }
 
   function submitLogin() {
-    if (!detectedBranchTemp) return;
+    if (!detectedBranchTemp) {
+      triggerLoginShake();
+      showToast("❌ รหัสสาขาไม่ถูกต้อง! เฉพาะ 15 สาขาที่ลงทะเบียนไว้เท่านั้นที่สามารถเข้าใช้งานได้", "danger");
+      if (codeInput) codeInput.focus();
+      return;
+    }
+
     setActiveBranch(detectedBranchTemp);
     closeLoginModal();
-    showToast(`🏢 เข้าสู่ระบบสำเร็จ: <strong>${detectedBranchTemp.name}</strong> (${detectedBranchTemp.code})`, "success");
+    showToast(`🏢 เข้าสู่ระบบสำเร็จ: <strong>${detectedBranchTemp.name}</strong> (รหัส ${detectedBranchTemp.code})`, "success");
   }
 
   if (submitBtn) {
