@@ -189,6 +189,30 @@
           <label class="upload-label">ชื่อเอกสาร</label>
           <input type="text" class="upload-input" id="upload-title" placeholder="เช่น ใบสมัครสินเชื่อรถจักรยานยนต์">
         </div>
+
+        <!-- Smart Duplicate & Version Detection Alert Box -->
+        <div class="upload-duplicate-box" id="upload-duplicate-notice" style="display:none">
+          <div class="dup-box-header">
+            <span class="dup-box-badge">⚠️ พบเอกสารที่ตรงกันในระบบ</span>
+            <span class="dup-box-id" id="dup-doc-id">DOC-001</span>
+          </div>
+          <div class="dup-box-content">
+            <div class="dup-doc-title" id="dup-doc-title">ชื่อเอกสารเดิม</div>
+            <div class="dup-doc-meta" id="dup-doc-meta">หมวด: ... | ปัจจุบัน: v1.0 | วันที่: 10 ต.ค. 2567</div>
+          </div>
+          <div class="dup-box-actions">
+            <button type="button" class="btn-dup-action btn-dup-update" id="btn-dup-update">
+              🔄 อัปเดตทับเป็นเวอร์ชันใหม่
+            </button>
+            <button type="button" class="btn-dup-action btn-dup-separate" id="btn-dup-separate">
+              📑 เพิ่มเป็นเอกสารใหม่แยกต่างหาก
+            </button>
+            <button type="button" class="btn-dup-action btn-dup-cancel" id="btn-dup-cancel">
+              ✕ ปิด
+            </button>
+          </div>
+        </div>
+
         <div class="upload-form-row">
           <label class="upload-label">ชื่อไฟล์เอกสาร (เช่น contract.pdf)</label>
           <input type="text" class="upload-input" id="upload-filename" placeholder="จะใส่ให้อัตโนมัติเมื่อเลือกไฟล์ หรือตั้งชื่อเองได้">

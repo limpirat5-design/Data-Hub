@@ -2382,6 +2382,123 @@ input, select, textarea { font: inherit; }
   padding: 12px 0;
 }
 
+/* Duplicate / Version Detection Alert Box */
+.upload-duplicate-box {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.09), rgba(99, 102, 241, 0.05));
+  border: 1.5px solid rgba(245, 158, 11, 0.38);
+  border-radius: var(--radius-md);
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: fadeSlideUp 0.25s var(--ease-out) both;
+}
+
+.dup-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dup-box-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+
+.dup-box-id {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-en);
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-mid);
+}
+
+.dup-box-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dup-doc-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dup-doc-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.dup-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.btn-dup-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  touch-action: manipulation;
+}
+
+.btn-dup-update {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.btn-dup-update:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-dup-separate {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-mid);
+}
+
+.btn-dup-separate:hover {
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.btn-dup-cancel {
+  background: none;
+  color: var(--text-tertiary);
+  border: none;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.btn-dup-cancel:hover {
+  color: var(--text-primary);
+}
+
 /* Modal Footer */
 .modal-footer {
   display: flex;

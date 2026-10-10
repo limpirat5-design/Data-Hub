@@ -1080,6 +1080,132 @@ function initUploadModal() {
     });
   }
 
+  // State for Smart Duplicate / Version Management
+  let uploadTargetExistingDocId = null;
+  let acknowledgedDuplicateTitle = null;
+
+  function findMatchingDocument(title, filename = "") {
+    if (!title && !filename) return null;
+    const clean = (s) => (s || "").toLowerCase().replace(/[\s\-_.\(\)\[\]]/g, "");
+    const targetTitle = clean(title);
+    const targetFn = clean(filename.replace(/\.[^/.]+$/, ""));
+
+    return DOCUMENTS.find(d => {
+      const dTitle = clean(d.title);
+      const dFn = clean((d.file_name || "").replace(/\.[^/.]+$/, ""));
+      if (targetTitle && dTitle && (dTitle === targetTitle || (targetTitle.length >= 4 && dTitle.includes(targetTitle)) || (dTitle.length >= 4 && targetTitle.includes(dTitle)))) {
+        return true;
+      }
+      if (targetFn && dFn && (dFn === targetFn || (targetFn.length >= 4 && dFn.includes(targetFn)))) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  function getNextVersionSuggestion(verStr) {
+    const m = String(verStr || "").match(/v?(\d+)(\.(\d+))?/i);
+    if (m) {
+      const major = parseInt(m[1], 10);
+      const minor = m[3] ? parseInt(m[3], 10) : 0;
+      return `v${major}.${minor + 1}`;
+    }
+    return "v2.0";
+  }
+
+  function checkAndShowDuplicateNotice(title, filename = "") {
+    const notice = $("#upload-duplicate-notice");
+    if (!notice) return;
+
+    if (!title && !filename) {
+      notice.style.display = "none";
+      return;
+    }
+
+    if (acknowledgedDuplicateTitle && acknowledgedDuplicateTitle === title) {
+      notice.style.display = "none";
+      return;
+    }
+
+    const matched = findMatchingDocument(title, filename);
+    if (matched) {
+      const cat = CATEGORIES.find(c => c.id === matched.category_id);
+      const catName = cat ? cat.name : "หมวดทั่วไป";
+      $("#dup-doc-id").textContent = matched.doc_id;
+      $("#dup-doc-title").textContent = matched.title;
+      $("#dup-doc-meta").textContent = `หมวด: ${catName} | เวอร์ชันปัจจุบัน: ${matched.version} (เริ่มใช้: ${formatDate(matched.effective_date)}) | อัปเดตล่าสุด: ${matched.last_updated_by || 'สาขา'}`;
+      notice.style.display = "flex";
+      notice.dataset.docid = matched.doc_id;
+    } else {
+      notice.style.display = "none";
+      if (!uploadTargetExistingDocId) {
+        const saveBtn = $("#btn-save-new-doc");
+        if (saveBtn) saveBtn.innerHTML = `💾 บันทึกเอกสารเข้าระบบ`;
+      }
+    }
+  }
+
+  // Watch title input for duplicates
+  const titleInputEl = $("#upload-title");
+  let titleDupDebounce;
+  if (titleInputEl) {
+    titleInputEl.addEventListener("input", () => {
+      clearTimeout(titleDupDebounce);
+      titleDupDebounce = setTimeout(() => {
+        checkAndShowDuplicateNotice(titleInputEl.value.trim(), $("#upload-filename")?.value.trim() || "");
+      }, 250);
+    });
+  }
+
+  // Duplicate Action: Update Existing Document
+  const btnDupUpdate = $("#btn-dup-update");
+  if (btnDupUpdate) {
+    btnDupUpdate.addEventListener("click", () => {
+      const notice = $("#upload-duplicate-notice");
+      const docId = notice?.dataset.docid;
+      const matched = DOCUMENTS.find(d => d.doc_id === docId);
+      if (!matched) return;
+
+      uploadTargetExistingDocId = matched.doc_id;
+      acknowledgedDuplicateTitle = matched.title;
+
+      // Populate category and subcategories from matched doc
+      $("#upload-category").value = matched.category_id;
+      renderSubcategoryCheckboxes("upload-subcategories-group", matched.category_id, getDocSubcategories(matched));
+
+      // Auto-suggest next version
+      const nextVer = getNextVersionSuggestion(matched.version);
+      $("#upload-version").value = nextVer;
+      $("#upload-changelog").value = `ปรับปรุงเป็นเวอร์ชัน ${nextVer} (แทนที่ ${matched.version})`;
+
+      // Update save button text
+      $("#btn-save-new-doc").innerHTML = `🔄 บันทึกอัปเดตเวอร์ชันใหม่ (${matched.doc_id})`;
+      notice.style.display = "none";
+      showToast(`✨ สลับเป็นโหมดอัปเดตเวอร์ชันใหม่สำหรับ "${matched.title}" (${matched.version} → ${nextVer})`, "success");
+    });
+  }
+
+  // Duplicate Action: Create Separate Document
+  const btnDupSeparate = $("#btn-dup-separate");
+  if (btnDupSeparate) {
+    btnDupSeparate.addEventListener("click", () => {
+      const titleInput = $("#upload-title");
+      acknowledgedDuplicateTitle = titleInput ? titleInput.value.trim() : "__acknowledged";
+      uploadTargetExistingDocId = null;
+      $("#upload-duplicate-notice").style.display = "none";
+      $("#btn-save-new-doc").innerHTML = `💾 บันทึกเอกสารเข้าระบบ`;
+      showToast("📑 ยืนยันบันทึกเป็นเอกสารใหม่แยกต่างหาก", "info");
+    });
+  }
+
+  // Duplicate Action: Close notice
+  const btnDupCancel = $("#btn-dup-cancel");
+  if (btnDupCancel) {
+    btnDupCancel.addEventListener("click", () => {
+      $("#upload-duplicate-notice").style.display = "none";
+    });
+  }
+
   // AI Summarize Changelog
   const aiSummarizeBtn = $("#btn-ai-summarize");
   if (aiSummarizeBtn) {
@@ -1133,12 +1259,90 @@ function initUploadModal() {
         return;
       }
 
-      const nextNum = DOCUMENTS.length + 1;
-      const newDocId = "DOC-" + String(nextNum).padStart(3, "0");
       const filename = (fnInput && fnInput.value.trim()) || (uploadState.files[0] ? uploadState.files[0].name : title + ".pdf");
-      let fileUrl = "files/" + filename;
+
+      // ตรวจสอบความปลอดภัยกรณีพบเอกสารซ้ำและยังไม่ได้เลือกวิธีการจัดการ
+      if (!uploadTargetExistingDocId && (!acknowledgedDuplicateTitle || acknowledgedDuplicateTitle !== title)) {
+        const matched = findMatchingDocument(title, filename);
+        if (matched) {
+          checkAndShowDuplicateNotice(title, filename);
+          const notice = $("#upload-duplicate-notice");
+          if (notice) notice.scrollIntoView({ behavior: "smooth", block: "center" });
+          showToast(`⚠️ พบเอกสาร "${matched.title}" (${matched.version}) ในระบบแล้ว กรุณาเลือกว่าต้องการ "อัปเดตทับ" หรือ "เพิ่มแยก"`, "warning");
+          return;
+        }
+      }
 
       saveDocBtn.classList.add("btn-loading");
+
+      // กรณีที่ 1: อัปเดตทับเป็นเวอร์ชันใหม่ของเอกสารเดิม (Update Existing Document)
+      if (uploadTargetExistingDocId) {
+        const doc = DOCUMENTS.find(d => d.doc_id === uploadTargetExistingDocId);
+        if (doc) {
+          let fileUrl = doc.download_url;
+
+          // 1. บันทึกไฟล์ใหม่ลง IndexedDB ในเครื่อง
+          if (uploadState.files.length > 0) {
+            await saveFileToDB(doc.doc_id, uploadState.files[0]);
+          }
+
+          // 2. ส่งขึ้น Cloud Storage ถ้ามี
+          if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
+            if (uploadState.files.length > 0 && typeof uploadFileToCloudStorage === "function") {
+              showToast("☁️ กำลังส่งไฟล์เวอร์ชันใหม่ขึ้น Cloud Storage...", "info");
+              const cloudUpload = await uploadFileToCloudStorage(doc.doc_id, uploadState.files[0]);
+              if (cloudUpload.success) {
+                fileUrl = cloudUpload.publicUrl;
+              }
+            }
+          }
+
+          // เก็บประวัติเวอร์ชันเดิมไว้เป็น History
+          if (!Array.isArray(doc.history)) doc.history = [];
+          doc.history.unshift({
+            version: doc.version,
+            effective_date: doc.effective_date,
+            file_name: doc.file_name,
+            download_url: doc.download_url,
+            changelog_summary: doc.changelog_summary,
+            updated_by: doc.last_updated_by || "สาขา",
+            archived_at: new Date().toISOString()
+          });
+
+          // อัปเดตข้อมูลเอกสารฉบับปัจจุบัน
+          doc.category_id = catId;
+          doc.subcategories = checkedSubs;
+          doc.subcategory = checkedSubs.join(", ");
+          doc.title = title;
+          doc.file_name = filename;
+          doc.version = ver.startsWith("v") ? ver : "v" + ver;
+          doc.effective_date = date;
+          doc.status = "active";
+          doc.download_url = fileUrl;
+          doc.changelog_summary = changelog;
+          doc.last_updated_by = currentBranch ? `${currentBranch.name} (${currentBranch.code})` : "สาขา";
+
+          // 3. บันทึกขึ้น Cloud Database ถ้ามี
+          if (typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveDocumentToCloud === "function") {
+            await saveDocumentToCloud(doc);
+          }
+
+          saveDocBtn.classList.remove("btn-loading");
+          saveDocumentsToStorage();
+          renderCategories();
+          renderSubFilters();
+          renderQuickAccess();
+          renderDocuments();
+          showToast(`✅ อัปเดตเอกสาร "${doc.title}" เป็นเวอร์ชัน ${doc.version} เรียบร้อย!`, "success");
+          closeUploadModal();
+          return;
+        }
+      }
+
+      // กรณีที่ 2: บันทึกเป็นเอกสารใหม่
+      const nextNum = DOCUMENTS.length + 1;
+      const newDocId = "DOC-" + String(nextNum).padStart(3, "0");
+      let fileUrl = "files/" + filename;
 
       // 1. บันทึกไฟล์ลง IndexedDB ในเครื่อง
       if (uploadState.files.length > 0) {
@@ -1185,7 +1389,7 @@ function initUploadModal() {
       renderSubFilters();
       renderQuickAccess();
       renderDocuments();
-      showToast(`✅ บันทึกเอกสาร "${title}" เรียบร้อย!`, "success");
+      showToast(`✅ บันทึกเอกสารใหม่ "${title}" เรียบร้อย!`, "success");
       closeUploadModal();
     });
   }
@@ -1227,6 +1431,13 @@ function handleFiles(fileList) {
     // เปิดแบบฟอร์มให้อัตโนมัติเพื่อให้ผู้ใช้ตรวจทานและบันทึก
     $("#upload-form").style.display = "flex";
     $("#upload-reset-btn").style.display = "inline-flex";
+
+    // ตรวจสอบเอกสารซ้ำทันที
+    setTimeout(() => {
+      if (typeof checkAndShowDuplicateNotice === "function") {
+        checkAndShowDuplicateNotice(titleInput ? titleInput.value.trim() : "", first.name);
+      }
+    }, 150);
   }
 
   renderUploadFileList();
@@ -1509,6 +1720,13 @@ function resetUpload() {
   $("#upload-check-btn").classList.remove("btn-loading");
 
   // Reset form
+  uploadTargetExistingDocId = null;
+  acknowledgedDuplicateTitle = null;
+  const dupNotice = $("#upload-duplicate-notice");
+  if (dupNotice) dupNotice.style.display = "none";
+  const saveBtn = $("#btn-save-new-doc");
+  if (saveBtn) saveBtn.innerHTML = `💾 บันทึกเอกสารเข้าระบบ`;
+
   $("#upload-category").value = "";
   renderSubcategoryCheckboxes("upload-subcategories-group", null, []);
   $("#upload-title").value = "";
