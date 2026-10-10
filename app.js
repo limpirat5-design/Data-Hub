@@ -469,13 +469,22 @@ function openLoginModal(canClose = false) {
   const statusHint = $("#login-status-hint");
   if (statusIcon) statusIcon.innerHTML = "";
   if (statusHint) {
-    statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
+    statusHint.textContent = "กรอกรหัสสาขา 5 หลัก";
     statusHint.style.color = "var(--text-tertiary)";
   }
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.className = "login-submit-btn btn-disabled";
     submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
+  }
+
+  // รีเซ็ตการซ่อนรหัสเป็น password เสมอ
+  if (codeInput) codeInput.type = "password";
+  const eyeShow = $("#eye-icon-show");
+  const eyeHide = $("#eye-icon-hide");
+  if (eyeShow && eyeHide) {
+    eyeShow.style.display = "block";
+    eyeHide.style.display = "none";
   }
 
   openModal("login-modal");
@@ -519,7 +528,7 @@ function updateLoginDetection(code) {
     if (codeInput) codeInput.classList.remove("input-valid", "input-invalid");
     if (statusIcon) statusIcon.innerHTML = "";
     if (statusHint) {
-      statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
+      statusHint.textContent = "กรอกรหัสสาขา 5 หลัก";
       statusHint.style.color = "var(--text-tertiary)";
     }
     if (preview) {
@@ -597,6 +606,7 @@ function initBranchAuth() {
   const closeBtn = $("#login-modal-close");
   const badge = $("#branch-user-badge");
   const modal = $("#login-modal");
+  const pwdToggleBtn = $("#btn-login-pwd-toggle");
 
   // ล้างสถานะเดิมเสมอ เพื่อบังคับให้ Login ใหม่ทุกครั้งที่เปิดเข้าใช้งาน
   clearActiveBranch();
@@ -616,6 +626,21 @@ function initBranchAuth() {
         e.preventDefault();
         submitLogin();
       }
+    });
+  }
+
+  // ปุ่มกดเพื่อ ดู/ซ่อน รหัสผ่าน (Eye Toggle)
+  if (pwdToggleBtn && codeInput) {
+    pwdToggleBtn.addEventListener("click", () => {
+      const isPwd = codeInput.type === "password";
+      codeInput.type = isPwd ? "text" : "password";
+      const eyeShow = $("#eye-icon-show");
+      const eyeHide = $("#eye-icon-hide");
+      if (eyeShow && eyeHide) {
+        eyeShow.style.display = isPwd ? "none" : "block";
+        eyeHide.style.display = isPwd ? "block" : "none";
+      }
+      codeInput.focus();
     });
   }
 
