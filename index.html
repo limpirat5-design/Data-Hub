@@ -72,7 +72,13 @@
     <!-- Category Filter Cards -->
     <section class="categories-section">
       <div class="section-heading">
-        <h2>หมวดหมู่เอกสาร</h2>
+        <div class="section-heading-left" style="display:flex;align-items:center;gap:10px;">
+          <h2>หมวดหมู่เอกสาร</h2>
+          <span class="doc-section-badge" id="cat-count-badge">5 หมวด</span>
+        </div>
+        <button type="button" class="btn-manage-cats" id="btn-manage-categories">
+          ⚙️ จัดการหมวดหมู่
+        </button>
       </div>
       <div class="category-grid" id="category-grid">
         <!-- rendered by JS -->
@@ -310,6 +316,98 @@
           <button class="modal-btn-secondary" id="edit-cancel-btn">ยกเลิก</button>
           <button class="modal-btn-primary" id="edit-save-btn">
             💾 บันทึกการแก้ไข
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Manage Categories Modal ===== -->
+  <div class="modal-overlay" id="categories-modal" aria-hidden="true">
+    <div class="modal-container upload-modal-container" style="max-width: 620px;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-wrap" style="background:#e0e7ff;color:#4f46e5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          </div>
+          <div>
+            <h2 class="modal-title">จัดการหมวดหมู่เอกสาร</h2>
+            <p class="modal-subtitle">เพิ่ม แก้ไข หรือลบหมวดหมู่และหมวดย่อยของระบบ</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="categories-modal-close" aria-label="ปิด">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Categories Body -->
+      <div class="cat-modal-body">
+        <!-- Action Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13.5px;font-weight:600;color:var(--text-secondary)">รายการหมวดหมู่ทั้งหมด</span>
+          <button type="button" class="modal-btn-primary" id="btn-show-add-cat-form" style="padding:7px 14px;font-size:13px;gap:6px">
+            ➕ เพิ่มหมวดหมู่ใหม่
+          </button>
+        </div>
+
+        <!-- Inline Category Add/Edit Form -->
+        <div id="cat-editor-card" class="cat-editor-card" style="display:none">
+          <div class="cat-editor-header">
+            <h4 id="cat-editor-title">➕ เพิ่มหมวดหมู่ใหม่</h4>
+            <button type="button" class="cat-editor-close" id="btn-cancel-cat-edit">✕ ปิดฟอร์ม</button>
+          </div>
+          <input type="hidden" id="cat-edit-id">
+          <div class="upload-form-row">
+            <label class="upload-label">ชื่อหมวดหมู่ <span style="color:#ef4444">*</span></label>
+            <input type="text" class="upload-input" id="cat-edit-name" placeholder="เช่น สินเชื่อเพื่อการเกษตร หรือ เอกสารบุคคล">
+          </div>
+          <div class="upload-form-row">
+            <label class="upload-label">หมวดย่อย (คั่นด้วยเครื่องหมายจุลภาค , )</label>
+            <input type="text" class="upload-input" id="cat-edit-subcategories" placeholder="เช่น สัญญา, แบบฟอร์ม, สำเนา">
+            <span style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px">พิมพ์หลายหมวดย่อยโดยคั่นด้วยเครื่องหมายจุลภาค (,)</span>
+          </div>
+          <div class="upload-form-row-half">
+            <div class="upload-form-row">
+              <label class="upload-label">สีประจำหมวด</label>
+              <select class="upload-select" id="cat-edit-color">
+                <option value="#6366f1">ม่วง Indigo</option>
+                <option value="#0ea5e9">ฟ้า Sky Blue</option>
+                <option value="#10b981">เขียว Emerald</option>
+                <option value="#f59e0b">ส้ม Amber</option>
+                <option value="#ef4444">แดง Rose</option>
+                <option value="#8b5cf6">ม่วงสว่าง Violet</option>
+                <option value="#14b8a6">เขียวอมฟ้า Teal</option>
+                <option value="#ec4899">ชมพู Pink</option>
+              </select>
+            </div>
+            <div class="upload-form-row">
+              <label class="upload-label">ไอคอน</label>
+              <select class="upload-select" id="cat-edit-icon">
+                <option value="file-text">📄 เอกสาร (file-text)</option>
+                <option value="refresh-cw">🔄 รีไฟแนนซ์ (refresh-cw)</option>
+                <option value="user-check">👤 บุคคล/KYC (user-check)</option>
+                <option value="clipboard-list">📋 แบบคำขอ (clipboard-list)</option>
+                <option value="trending-up">📈 สื่อขาย/อัตรา (trending-up)</option>
+                <option value="folder">📁 โฟลเดอร์ (folder)</option>
+                <option value="tag">🏷️ แท็ก (tag)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+            <button type="button" class="modal-btn-secondary" id="btn-cancel-cat-form">ยกเลิก</button>
+            <button type="button" class="modal-btn-primary" id="btn-save-cat-form">💾 บันทึกหมวดหมู่</button>
+          </div>
+        </div>
+
+        <!-- List of categories -->
+        <div class="cat-manage-list" id="cat-manage-list">
+          <!-- rendered by JS -->
+        </div>
+
+        <!-- Restore Defaults -->
+        <div style="text-align:center;padding-top:8px;border-top:1px dashed var(--border-mid)">
+          <button type="button" class="btn-restore-default-cats" id="btn-restore-default-cats">
+            🔄 คืนค่าหมวดหมู่เริ่มต้น (5 หมวดมาตรฐาน)
           </button>
         </div>
       </div>

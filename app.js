@@ -28,6 +28,7 @@ const ICONS = {
   "bar-chart": `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>`,
   tag: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>`,
   "folder-open": `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>`,
+  folder: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>`,
   bell: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   upload: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
   edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
@@ -35,7 +36,7 @@ const ICONS = {
 };
 
 function icon(name) {
-  return ICONS[name] || "";
+  return ICONS[name] || ICONS["file-text"] || "";
 }
 
 // ========================
@@ -118,6 +119,8 @@ function openUploadForCategory(catId = null, subcategory = null) {
   const resetBtn = $("#upload-reset-btn");
   if (resetBtn) resetBtn.style.display = "inline-flex";
 
+  populateUploadCategories();
+
   if (catId) {
     const catSelect = $("#upload-category");
     const subSelect = $("#upload-subcategory");
@@ -126,7 +129,7 @@ function openUploadForCategory(catId = null, subcategory = null) {
       if (subSelect) {
         subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
         const cat = CATEGORIES.find(c => c.id === catId);
-        if (cat) {
+        if (cat && Array.isArray(cat.subcategories)) {
           cat.subcategories.forEach(sub => {
             const opt = document.createElement("option");
             opt.value = sub;
@@ -148,12 +151,17 @@ function openUploadForCategory(catId = null, subcategory = null) {
 
 function renderCategories() {
   const container = $("#category-grid");
+  const countBadge = $("#cat-count-badge");
+  if (countBadge) {
+    countBadge.textContent = `${CATEGORIES.length} หมวด`;
+  }
+
   container.innerHTML = CATEGORIES.map(cat => `
     <div class="category-card ${state.activeCategory === cat.id ? 'active' : ''}"
          data-category="${cat.id}"
          id="cat-${cat.id}">
       <div class="cat-card-top">
-        <div class="cat-icon-wrap">
+        <div class="cat-icon-wrap" style="${cat.color ? `background:${cat.color}18;color:${cat.color};` : ''}">
           ${icon(cat.icon)}
         </div>
         <button type="button" class="cat-quick-add-btn" data-catid="${cat.id}" title="เพิ่มเอกสารในหมวด ${cat.name}">
@@ -202,12 +210,19 @@ function renderSubFilters() {
     return;
   }
 
-  container.style.display = "flex";
   const cat = CATEGORIES.find(c => c.id === state.activeCategory);
-  if (!cat) return;
+  if (!cat) {
+    state.activeCategory = null;
+    state.activeSubcategory = null;
+    container.innerHTML = "";
+    container.style.display = "none";
+    return;
+  }
 
+  container.style.display = "flex";
   const allBtn = `<button class="sub-filter-btn ${!state.activeSubcategory ? 'active' : ''}" data-sub="__all">ทั้งหมด</button>`;
-  const subBtns = cat.subcategories.map(sub =>
+  const subList = Array.isArray(cat.subcategories) ? cat.subcategories : [];
+  const subBtns = subList.map(sub =>
     `<button class="sub-filter-btn ${state.activeSubcategory === sub ? 'active' : ''}" data-sub="${sub}">${sub}</button>`
   ).join("");
 
@@ -792,7 +807,9 @@ function initBranchAuth() {
 // ========================
 document.addEventListener("DOMContentLoaded", async () => {
   initBranchAuth();
+  loadStoredCategories();
   loadStoredDocuments();
+  initCategoryManagement();
   renderCategories();
   renderSubFilters();
   renderQuickAccess();
@@ -935,19 +952,14 @@ function initUploadModal() {
   const subSelect = $("#upload-subcategory");
 
   // Populate categories
-  CATEGORIES.forEach(cat => {
-    const opt = document.createElement("option");
-    opt.value = cat.id;
-    opt.textContent = cat.name;
-    catSelect.appendChild(opt);
-  });
+  populateUploadCategories();
 
   catSelect.addEventListener("change", () => {
     const catId = catSelect.value;
     subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
     if (catId) {
       const cat = CATEGORIES.find(c => c.id === catId);
-      if (cat) {
+      if (cat && Array.isArray(cat.subcategories) && cat.subcategories.length > 0) {
         cat.subcategories.forEach(sub => {
           const opt = document.createElement("option");
           opt.value = sub;
@@ -955,6 +967,8 @@ function initUploadModal() {
           subSelect.appendChild(opt);
         });
         subSelect.disabled = false;
+      } else {
+        subSelect.disabled = true;
       }
     } else {
       subSelect.disabled = true;
@@ -1428,6 +1442,24 @@ function closeModal(id) {
 let currentEditDoc = null;
 let selectedEditFile = null;
 
+function populateUploadCategories() {
+  const catSelect = $("#upload-category");
+  const subSelect = $("#upload-subcategory");
+  if (!catSelect) return;
+  const currentVal = catSelect.value;
+  catSelect.innerHTML = '<option value="">— เลือกหมวดหมู่ —</option>' +
+    CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+  if (currentVal && CATEGORIES.some(c => c.id === currentVal)) {
+    catSelect.value = currentVal;
+  } else {
+    catSelect.value = "";
+    if (subSelect) {
+      subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
+      subSelect.disabled = true;
+    }
+  }
+}
+
 function populateEditCategories() {
   const catSelect = $("#edit-category");
   if (!catSelect) return;
@@ -1438,7 +1470,7 @@ function updateEditSubcategories(catId, selectedSub = null) {
   const subSelect = $("#edit-subcategory");
   if (!subSelect) return;
   const cat = CATEGORIES.find(c => c.id === catId);
-  if (!cat) {
+  if (!cat || !Array.isArray(cat.subcategories) || cat.subcategories.length === 0) {
     subSelect.innerHTML = '<option value="">— ไม่มีหมวดย่อย —</option>';
     return;
   }
@@ -1698,6 +1730,301 @@ function showConfirm(title, message, iconEmoji, onConfirm) {
 }
 
 // =============================================
+// Category Management & Persistence
+// =============================================
+const DEFAULT_CATEGORIES_DATA = JSON.parse(JSON.stringify(CATEGORIES));
+
+function loadStoredCategories() {
+  try {
+    const saved = localStorage.getItem("branch_hub_categories");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        CATEGORIES.length = 0;
+        CATEGORIES.push(...parsed);
+      }
+    }
+  } catch (e) {
+    console.warn("Could not load categories from localStorage:", e);
+  }
+}
+
+function saveCategoriesToStorage() {
+  try {
+    localStorage.setItem("branch_hub_categories", JSON.stringify(CATEGORIES));
+  } catch (e) {
+    console.warn("Could not save categories to localStorage:", e);
+  }
+}
+
+function refreshAllCategoryUI() {
+  renderCategories();
+  renderSubFilters();
+  renderDocuments();
+  populateUploadCategories();
+  populateEditCategories();
+  renderCategoryManageList();
+}
+
+function renderCategoryManageList() {
+  const container = $("#cat-manage-list");
+  if (!container) return;
+
+  if (CATEGORIES.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--text-tertiary)">
+        <p>ยังไม่มีหมวดหมู่ในระบบ</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = CATEGORIES.map(cat => {
+    const docCount = getCategoryCount(cat.id);
+    const subList = Array.isArray(cat.subcategories) ? cat.subcategories : [];
+    const subsText = subList.length > 0
+      ? `หมวดย่อย: ${subList.join(', ')}`
+      : 'ไม่มีหมวดย่อย';
+
+    return `
+      <div class="cat-manage-item" data-id="${cat.id}">
+        <div class="cat-manage-left">
+          <div class="cat-manage-icon" style="background:${cat.color ? cat.color + '18' : 'var(--bg-tertiary)'};color:${cat.color || 'var(--primary)'}">
+            ${icon(cat.icon)}
+          </div>
+          <div class="cat-manage-info">
+            <div class="cat-manage-title">
+              ${escapeHtml(cat.name)} <span style="font-size:11.5px;font-weight:normal;color:var(--text-tertiary);margin-left:4px">(${docCount} เอกสาร)</span>
+            </div>
+            <div class="cat-manage-subs">
+              ${escapeHtml(subsText)}
+            </div>
+          </div>
+        </div>
+        <div class="cat-manage-actions">
+          <button type="button" class="cat-action-btn edit" data-catid="${cat.id}" title="แก้ไขหมวดหมู่">
+            ✏️ แก้ไข
+          </button>
+          <button type="button" class="cat-action-btn delete" data-catid="${cat.id}" title="ลบหมวดหมู่">
+            🗑️ ลบ
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Attach event listeners for edit / delete
+  container.querySelectorAll(".cat-action-btn.edit").forEach(btn => {
+    btn.addEventListener("click", () => {
+      openEditCategoryForm(btn.dataset.catid);
+    });
+  });
+
+  container.querySelectorAll(".cat-action-btn.delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      deleteCategory(btn.dataset.catid);
+    });
+  });
+}
+
+function openAddCategoryForm() {
+  const card = $("#cat-editor-card");
+  if (!card) return;
+  $("#cat-editor-title").textContent = "➕ เพิ่มหมวดหมู่ใหม่";
+  $("#cat-edit-id").value = "";
+  $("#cat-edit-name").value = "";
+  $("#cat-edit-subcategories").value = "";
+  $("#cat-edit-color").value = "#6366f1";
+  $("#cat-edit-icon").value = "file-text";
+  card.style.display = "block";
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  setTimeout(() => $("#cat-edit-name").focus(), 100);
+}
+
+function openEditCategoryForm(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+  const card = $("#cat-editor-card");
+  if (!card) return;
+  $("#cat-editor-title").textContent = `✏️ แก้ไขหมวดหมู่: ${cat.name}`;
+  $("#cat-edit-id").value = cat.id;
+  $("#cat-edit-name").value = cat.name;
+  $("#cat-edit-subcategories").value = (cat.subcategories || []).join(", ");
+  $("#cat-edit-color").value = cat.color || "#6366f1";
+  $("#cat-edit-icon").value = cat.icon || "file-text";
+  card.style.display = "block";
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  setTimeout(() => $("#cat-edit-name").focus(), 100);
+}
+
+function closeCategoryForm() {
+  const card = $("#cat-editor-card");
+  if (card) card.style.display = "none";
+}
+
+function saveCategoryForm() {
+  const idInput = $("#cat-edit-id").value.trim();
+  const nameInput = $("#cat-edit-name").value.trim();
+  const subsInput = $("#cat-edit-subcategories").value.trim();
+  const colorInput = $("#cat-edit-color").value;
+  const iconInput = $("#cat-edit-icon").value;
+
+  if (!nameInput) {
+    showToast("กรุณากรอกชื่อหมวดหมู่", "warning");
+    $("#cat-edit-name").focus();
+    return;
+  }
+
+  const subcategories = subsInput
+    ? subsInput.split(",").map(s => s.trim()).filter(s => s.length > 0)
+    : [];
+
+  if (idInput) {
+    // Edit existing category
+    const cat = CATEGORIES.find(c => c.id === idInput);
+    if (!cat) {
+      showToast("ไม่พบหมวดหมู่ที่ต้องการแก้ไข", "error");
+      return;
+    }
+    cat.name = nameInput;
+    cat.color = colorInput;
+    cat.icon = iconInput;
+    cat.subcategories = subcategories;
+
+    saveCategoriesToStorage();
+    refreshAllCategoryUI();
+    closeCategoryForm();
+    showToast(`✅ อัปเดตหมวดหมู่ "${nameInput}" เรียบร้อย`, "success");
+  } else {
+    // Add new category
+    const newId = "cat_" + Date.now();
+    const newCat = {
+      id: newId,
+      name: nameInput,
+      icon: iconInput,
+      color: colorInput,
+      subcategories: subcategories
+    };
+    CATEGORIES.push(newCat);
+
+    saveCategoriesToStorage();
+    refreshAllCategoryUI();
+    closeCategoryForm();
+    showToast(`✅ เพิ่มหมวดหมู่ใหม่ "${nameInput}" เรียบร้อย`, "success");
+  }
+}
+
+function deleteCategory(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+
+  if (CATEGORIES.length <= 1) {
+    showToast("ระบบต้องมีอย่างน้อย 1 หมวดหมู่ ไม่สามารถลบทั้งหมดได้", "warning");
+    return;
+  }
+
+  const docCount = getCategoryCount(catId);
+  const confirmMsg = docCount > 0
+    ? `หมวดหมู่ "${cat.name}" มีเอกสารอยู่ ${docCount} รายการ หากลบหมวดหมู่นี้ เอกสารจะยังอยู่ในระบบแต่จะไม่แสดงในตัวกรองหมวดหมู่นี้ คุณต้องการลบใช่หรือไม่?`
+    : `คุณต้องการลบหมวดหมู่ "${cat.name}" ใช่หรือไม่?`;
+
+  showConfirm(
+    "ยืนยันการลบหมวดหมู่",
+    confirmMsg,
+    "🗑️",
+    () => {
+      const idx = CATEGORIES.findIndex(c => c.id === catId);
+      if (idx !== -1) {
+        CATEGORIES.splice(idx, 1);
+        if (state.activeCategory === catId) {
+          state.activeCategory = null;
+          state.activeSubcategory = null;
+        }
+        saveCategoriesToStorage();
+        refreshAllCategoryUI();
+        showToast(`🗑️ ลบหมวดหมู่ "${cat.name}" เรียบร้อย`, "info");
+      }
+    }
+  );
+}
+
+function restoreDefaultCategories() {
+  showConfirm(
+    "คืนค่าหมวดหมู่เริ่มต้น",
+    "ต้องการคืนค่าหมวดหมู่เป็น 5 หมวดหมู่มาตรฐานตามระบบเริ่มต้นหรือไม่? หมวดหมู่ที่สร้างขึ้นเองจะถูกแทนที่",
+    "🔄",
+    () => {
+      CATEGORIES.length = 0;
+      CATEGORIES.push(...JSON.parse(JSON.stringify(DEFAULT_CATEGORIES_DATA)));
+      if (!CATEGORIES.some(c => c.id === state.activeCategory)) {
+        state.activeCategory = null;
+        state.activeSubcategory = null;
+      }
+      saveCategoriesToStorage();
+      refreshAllCategoryUI();
+      closeCategoryForm();
+      showToast("🔄 คืนค่าหมวดหมู่มาตรฐาน 5 หมวด เรียบร้อย", "success");
+    }
+  );
+}
+
+function initCategoryManagement() {
+  const manageBtn = $("#btn-manage-categories");
+  const modal = $("#categories-modal");
+  const closeBtn = $("#categories-modal-close");
+  const showAddBtn = $("#btn-show-add-cat-form");
+  const cancelEditBtn = $("#btn-cancel-cat-edit");
+  const cancelFormBtn = $("#btn-cancel-cat-form");
+  const saveFormBtn = $("#btn-save-cat-form");
+  const restoreDefaultsBtn = $("#btn-restore-default-cats");
+
+  if (manageBtn) {
+    manageBtn.addEventListener("click", () => {
+      closeCategoryForm();
+      renderCategoryManageList();
+      openModal("categories-modal");
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      closeModal("categories-modal");
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal("categories-modal");
+    });
+  }
+
+  if (showAddBtn) {
+    showAddBtn.addEventListener("click", () => openAddCategoryForm());
+  }
+
+  if (cancelEditBtn) {
+    cancelEditBtn.addEventListener("click", () => closeCategoryForm());
+  }
+
+  if (cancelFormBtn) {
+    cancelFormBtn.addEventListener("click", () => closeCategoryForm());
+  }
+
+  if (saveFormBtn) {
+    saveFormBtn.addEventListener("click", () => saveCategoryForm());
+  }
+
+  if (restoreDefaultsBtn) {
+    restoreDefaultsBtn.addEventListener("click", () => restoreDefaultCategories());
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.classList.contains("open")) {
+      closeModal("categories-modal");
+    }
+  });
+}
+
+// =============================================
 // LocalStorage Persistence & Schema Migration
 // =============================================
 function loadStoredDocuments() {
@@ -1745,6 +2072,7 @@ function initDataBackup() {
           version: "1.0.0",
           export_date: new Date().toISOString(),
           total_documents: DOCUMENTS.length,
+          categories: CATEGORIES,
           documents: DOCUMENTS
         };
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json;charset=utf-8" });
@@ -1778,6 +2106,7 @@ function initDataBackup() {
         try {
           const json = JSON.parse(event.target.result);
           const docs = Array.isArray(json) ? json : json.documents;
+          const importedCats = Array.isArray(json.categories) ? json.categories : null;
 
           if (!Array.isArray(docs) || docs.length === 0) {
             showToast("รูปแบบไฟล์ JSON ไม่ถูกต้องหรือไม่พบรายการเอกสาร", "error");
@@ -1790,18 +2119,22 @@ function initDataBackup() {
             return;
           }
 
+          const catMsg = importedCats && importedCats.length > 0 ? ` และหมวดหมู่ ${importedCats.length} หมวด` : "";
           showConfirm(
             "กู้คืนข้อมูลเอกสาร",
-            `พบข้อมูลเอกสาร ${docs.length} รายการ ต้องการนำเข้าและแทนที่ข้อมูลในระบบหรือไม่?`,
+            `พบข้อมูลเอกสาร ${docs.length} รายการ${catMsg} ต้องการนำเข้าและแทนที่ข้อมูลในระบบหรือไม่?`,
             "📥",
             () => {
+              if (importedCats && importedCats.length > 0) {
+                CATEGORIES.length = 0;
+                CATEGORIES.push(...importedCats);
+                saveCategoriesToStorage();
+              }
               DOCUMENTS.length = 0;
               DOCUMENTS.push(...docs);
               saveDocumentsToStorage();
-              renderCategories();
-              renderSubFilters();
+              refreshAllCategoryUI();
               renderQuickAccess();
-              renderDocuments();
               showToast(`✅ กู้คืนข้อมูลสำเร็จ (${docs.length} รายการ)`, "success");
             }
           );
