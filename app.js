@@ -71,19 +71,96 @@ function isSharedSubcategory(sub) {
          s === "all";
 }
 
-function matchesSubcategory(docSub, targetSub) {
-  if (!targetSub || targetSub === "__all") return true;
-  if (!docSub) return false;
-  // 1. ถ้าตรงกับหมวดย่อยที่คลิกเลือก
-  if (docSub === targetSub) return true;
-  // 2. ถ้าเอกสารนี้ระบุเป็น "ใช้ได้ทุกประเภท / เอกสารทั่วไป / ใช้ร่วมกัน" ให้แสดงในทุกหมวดย่อยเสมอ!
-  if (isSharedSubcategory(docSub)) return true;
-  // 3. ถ้าระบุหลายหมวดย่อยคั่นด้วยเครื่องหมายจุลภาค (,)
-  if (docSub.includes(",")) {
-    const list = docSub.split(",").map(s => s.trim());
-    return list.includes(targetSub) || list.some(s => isSharedSubcategory(s));
+function getDocSubcategories(doc) {
+  if (!doc) return [];
+  if (Array.isArray(doc.subcategories) && doc.subcategories.length > 0) {
+    return doc.subcategories.map(s => String(s).trim()).filter(Boolean);
   }
+  if (doc.subcategory && typeof doc.subcategory === "string") {
+    return doc.subcategory.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function docMatchesSubcategory(doc, targetSub) {
+  if (!targetSub || targetSub === "__all") return true;
+  const subs = getDocSubcategories(doc);
+  if (subs.length === 0) return true;
+  if (subs.includes(targetSub)) return true;
+  if (subs.some(s => isSharedSubcategory(s))) return true;
   return false;
+}
+
+function renderSubcategoryCheckboxes(containerId, catId, selectedValues = []) {
+  const container = $(`#${containerId}`);
+  if (!container) return;
+
+  if (!catId) {
+    container.innerHTML = '<span class="sub-checkbox-empty">กรุณาเลือกหมวดหมู่ด้านบนก่อน</span>';
+    return;
+  }
+
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat || !Array.isArray(cat.subcategories) || cat.subcategories.length === 0) {
+    container.innerHTML = '<span class="sub-checkbox-empty">หมวดหมู่นี้ไม่มีหมวดย่อย</span>';
+    return;
+  }
+
+  let selectedList = [];
+  if (Array.isArray(selectedValues)) {
+    selectedList = selectedValues.map(s => String(s).trim());
+  } else if (typeof selectedValues === "string" && selectedValues.trim()) {
+    selectedList = selectedValues.split(",").map(s => s.trim());
+  }
+
+  const realSubs = cat.subcategories.filter(s => s !== "ใช้ได้ทุกประเภท / เอกสารทั่วไป");
+
+  container.innerHTML = realSubs.map((sub, idx) => {
+    const isChecked = selectedList.includes(sub) || selectedList.some(s => isSharedSubcategory(s));
+    const checkboxId = `${containerId}_chk_${idx}`;
+    return `
+      <label class="sub-checkbox-item" for="${checkboxId}">
+        <input type="checkbox" id="${checkboxId}" value="${escapeHtml(sub)}" ${isChecked ? 'checked' : ''}>
+        <span>${escapeHtml(sub)}</span>
+      </label>
+    `;
+  }).join("");
+}
+
+function selectAllSubcategories(containerId, check) {
+  const container = $(`#${containerId}`);
+  if (!container) return;
+  container.querySelectorAll("input[type='checkbox']").forEach(cb => {
+    cb.checked = check;
+  });
+}
+
+function formatDocSubcategoriesBadge(doc) {
+  if (!doc) return "";
+  const cat = CATEGORIES.find(c => c.id === doc.category_id);
+  const subs = getDocSubcategories(doc);
+
+  if (subs.length === 0) {
+    return `<div class="doc-sub">${doc.subcategory || 'เอกสารทั่วไป'}</div>`;
+  }
+
+  // ดูว่าเอกสารนี้ครอบคลุมทุกประเภทย่อยของหมวดหรือไม่
+  const catSubs = (cat && Array.isArray(cat.subcategories))
+    ? cat.subcategories.filter(s => s !== "ใช้ได้ทุกประเภท / เอกสารทั่วไป")
+    : [];
+  const coversAll = catSubs.length > 0 && catSubs.every(s => subs.includes(s));
+  const hasSharedKeyword = subs.some(s => isSharedSubcategory(s));
+
+  if (coversAll || hasSharedKeyword) {
+    const catLabel = cat ? ` (${cat.name.split(' /')[0].split(' &')[0]})` : '';
+    return `<div style="margin-top:2px"><span class="doc-sub-shared">🌟 ใช้ได้ทุกประเภท${catLabel}</span></div>`;
+  }
+
+  if (subs.length > 1) {
+    return `<div style="margin-top:2px"><span class="doc-sub-shared" style="background:var(--primary-subtle);color:var(--primary);border-color:var(--primary-light);">🏷️ ${subs.join(', ')}</span></div>`;
+  }
+
+  return `<div class="doc-sub">${subs[0]}</div>`;
 }
 
 // ========================
@@ -97,9 +174,9 @@ function getFilteredDocuments() {
     docs = docs.filter(d => d.category_id === state.activeCategory);
   }
 
-  // Filter by subcategory (รองรับเอกสารใช้ร่วมกันทุกประเภทรถ)
+  // Filter by subcategory (รองรับเอกสารที่เลือกได้หลายหมวดย่อย)
   if (state.activeSubcategory) {
-    docs = docs.filter(d => matchesSubcategory(d.subcategory, state.activeSubcategory));
+    docs = docs.filter(d => docMatchesSubcategory(d, state.activeSubcategory));
   }
 
   // Search
@@ -149,29 +226,16 @@ function openUploadForCategory(catId = null, subcategory = null) {
 
   if (catId) {
     const catSelect = $("#upload-category");
-    const subSelect = $("#upload-subcategory");
     if (catSelect) {
       catSelect.value = catId;
-      if (subSelect) {
-        subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
-        const cat = CATEGORIES.find(c => c.id === catId);
-        if (cat && Array.isArray(cat.subcategories)) {
-          const sharedOpt = document.createElement("option");
-          sharedOpt.value = "ใช้ได้ทุกประเภท / เอกสารทั่วไป";
-          sharedOpt.textContent = "🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)";
-          subSelect.appendChild(sharedOpt);
-
-          cat.subcategories.forEach(sub => {
-            if (sub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป") return;
-            const opt = document.createElement("option");
-            opt.value = sub;
-            opt.textContent = sub;
-            subSelect.appendChild(opt);
-          });
-          subSelect.disabled = false;
-          if (subcategory) subSelect.value = subcategory;
-        }
-      }
+      renderSubcategoryCheckboxes("upload-subcategories-group", catId, subcategory ? [subcategory] : []);
+    }
+  } else {
+    const catSelect = $("#upload-category");
+    if (catSelect && catSelect.value) {
+      renderSubcategoryCheckboxes("upload-subcategories-group", catSelect.value, []);
+    } else {
+      renderSubcategoryCheckboxes("upload-subcategories-group", null, []);
     }
   }
 
@@ -380,9 +444,7 @@ function renderDocuments() {
       <div class="doc-header">
         <div class="doc-title-area">
           <div class="doc-title">${doc.title}</div>
-          ${isSharedSubcategory(doc.subcategory)
-            ? `<div style="margin-top:2px"><span class="doc-sub-shared">🌟 ${doc.subcategory || 'ใช้ร่วมกันทุกประเภท'}</span></div>`
-            : `<div class="doc-sub">${doc.subcategory}</div>`}
+          ${formatDocSubcategoriesBadge(doc)}
         </div>
         <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
       </div>
@@ -996,39 +1058,27 @@ function initUploadModal() {
     }
   });
 
-  // Category cascade in upload form
+  // Category cascade & multi-select subcategories in upload form
   const catSelect = $("#upload-category");
-  const subSelect = $("#upload-subcategory");
+  const btnUploadSubAll = $("#btn-upload-sub-all");
+  const btnUploadSubNone = $("#btn-upload-sub-none");
+
+  if (btnUploadSubAll) {
+    btnUploadSubAll.addEventListener("click", () => selectAllSubcategories("upload-subcategories-group", true));
+  }
+  if (btnUploadSubNone) {
+    btnUploadSubNone.addEventListener("click", () => selectAllSubcategories("upload-subcategories-group", false));
+  }
 
   // Populate categories
   populateUploadCategories();
 
-  catSelect.addEventListener("change", () => {
-    const catId = catSelect.value;
-    subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
-    if (catId) {
-      const cat = CATEGORIES.find(c => c.id === catId);
-      if (cat && Array.isArray(cat.subcategories) && cat.subcategories.length > 0) {
-        const sharedOpt = document.createElement("option");
-        sharedOpt.value = "ใช้ได้ทุกประเภท / เอกสารทั่วไป";
-        sharedOpt.textContent = "🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)";
-        subSelect.appendChild(sharedOpt);
-
-        cat.subcategories.forEach(sub => {
-          if (sub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป") return;
-          const opt = document.createElement("option");
-          opt.value = sub;
-          opt.textContent = sub;
-          subSelect.appendChild(opt);
-        });
-        subSelect.disabled = false;
-      } else {
-        subSelect.disabled = true;
-      }
-    } else {
-      subSelect.disabled = true;
-    }
-  });
+  if (catSelect) {
+    catSelect.addEventListener("change", () => {
+      const catId = catSelect.value;
+      renderSubcategoryCheckboxes("upload-subcategories-group", catId, []);
+    });
+  }
 
   // AI Summarize Changelog
   const aiSummarizeBtn = $("#btn-ai-summarize");
@@ -1063,7 +1113,7 @@ function initUploadModal() {
   if (saveDocBtn) {
     saveDocBtn.addEventListener("click", async () => {
       const catId = $("#upload-category").value;
-      const sub = $("#upload-subcategory").value;
+      const checkedSubs = Array.from(document.querySelectorAll("#upload-subcategories-group input[type='checkbox']:checked")).map(cb => cb.value);
       const title = $("#upload-title").value.trim();
       const fnInput = $("#upload-filename");
       const ver = $("#upload-version").value.trim() || "v1.0";
@@ -1074,8 +1124,8 @@ function initUploadModal() {
         showToast("กรุณาเลือกหมวดหมู่เอกสาร", "error");
         return;
       }
-      if (!sub) {
-        showToast("กรุณาเลือกหมวดย่อย", "error");
+      if (checkedSubs.length === 0) {
+        showToast("กรุณาเลือกประเภทย่อยอย่างน้อย 1 ประเภท (หรือกด 'เลือกทั้งหมด')", "warning");
         return;
       }
       if (!title) {
@@ -1109,7 +1159,8 @@ function initUploadModal() {
       const newDoc = {
         doc_id: newDocId,
         category_id: catId,
-        subcategory: sub,
+        subcategories: checkedSubs,
+        subcategory: checkedSubs.join(", "),
         title: title,
         file_name: filename,
         version: ver.startsWith("v") ? ver : "v" + ver,
@@ -1459,8 +1510,7 @@ function resetUpload() {
 
   // Reset form
   $("#upload-category").value = "";
-  $("#upload-subcategory").innerHTML = '<option value="">— เลือกหมวดย่อยก่อน —</option>';
-  $("#upload-subcategory").disabled = true;
+  renderSubcategoryCheckboxes("upload-subcategories-group", null, []);
   $("#upload-title").value = "";
   if ($("#upload-filename")) $("#upload-filename").value = "";
   $("#upload-version").value = "";
@@ -1499,19 +1549,16 @@ let selectedEditFile = null;
 
 function populateUploadCategories() {
   const catSelect = $("#upload-category");
-  const subSelect = $("#upload-subcategory");
   if (!catSelect) return;
   const currentVal = catSelect.value;
   catSelect.innerHTML = '<option value="">— เลือกหมวดหมู่ —</option>' +
     CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
   if (currentVal && CATEGORIES.some(c => c.id === currentVal)) {
     catSelect.value = currentVal;
+    renderSubcategoryCheckboxes("upload-subcategories-group", currentVal, []);
   } else {
     catSelect.value = "";
-    if (subSelect) {
-      subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
-      subSelect.disabled = true;
-    }
+    renderSubcategoryCheckboxes("upload-subcategories-group", null, []);
   }
 }
 
@@ -1521,22 +1568,8 @@ function populateEditCategories() {
   catSelect.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
 }
 
-function updateEditSubcategories(catId, selectedSub = null) {
-  const subSelect = $("#edit-subcategory");
-  if (!subSelect) return;
-  const cat = CATEGORIES.find(c => c.id === catId);
-  if (!cat || !Array.isArray(cat.subcategories) || cat.subcategories.length === 0) {
-    subSelect.innerHTML = '<option value="ใช้ได้ทุกประเภท / เอกสารทั่วไป">🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)</option>';
-    return;
-  }
-  const isSelectedShared = selectedSub === "ใช้ได้ทุกประเภท / เอกสารทั่วไป" || isSharedSubcategory(selectedSub);
-  const sharedOption = `<option value="ใช้ได้ทุกประเภท / เอกสารทั่วไป" ${isSelectedShared ? 'selected' : ''}>🌟 ใช้ได้ทุกประเภท (ใช้ร่วมกันทุกหมวดย่อย)</option>`;
-  const otherOptions = cat.subcategories
-    .filter(sub => sub !== "ใช้ได้ทุกประเภท / เอกสารทั่วไป")
-    .map(sub => `<option value="${sub}" ${sub === selectedSub ? 'selected' : ''}>${sub}</option>`)
-    .join("");
-
-  subSelect.innerHTML = sharedOption + otherOptions;
+function updateEditSubcategories(catId, selectedSubs = null) {
+  renderSubcategoryCheckboxes("edit-subcategories-group", catId, selectedSubs || []);
 }
 
 function openEditModal(docId) {
@@ -1553,8 +1586,10 @@ function openEditModal(docId) {
   $("#edit-modal-title").textContent = `แก้ไข / อัปเดตเอกสาร [${doc.doc_id}]`;
 
   populateEditCategories();
-  $("#edit-category").value = doc.category_id || (CATEGORIES[0] && CATEGORIES[0].id);
-  updateEditSubcategories($("#edit-category").value, doc.subcategory);
+  const editCatId = doc.category_id || (CATEGORIES[0] && CATEGORIES[0].id);
+  $("#edit-category").value = editCatId;
+  const initialSubs = getDocSubcategories(doc);
+  renderSubcategoryCheckboxes("edit-subcategories-group", editCatId, initialSubs);
 
   $("#edit-title").value = doc.title || "";
   $("#edit-version").value = doc.version || "v1.0";
@@ -1584,9 +1619,19 @@ function initEditModal() {
   const saveBtn = $("#edit-save-btn");
   const deleteBtn = $("#edit-delete-btn");
   const catSelect = $("#edit-category");
+  const editSubAllBtn = $("#btn-edit-sub-all");
+  const editSubNoneBtn = $("#btn-edit-sub-none");
   const fileInput = $("#edit-file-input");
   const pickFileBtn = $("#btn-edit-pick-file");
   const aiSummBtn = $("#btn-edit-ai-summarize");
+
+  // Subcategory quick buttons
+  if (editSubAllBtn) {
+    editSubAllBtn.addEventListener("click", () => selectAllSubcategories("edit-subcategories-group", true));
+  }
+  if (editSubNoneBtn) {
+    editSubNoneBtn.addEventListener("click", () => selectAllSubcategories("edit-subcategories-group", false));
+  }
 
   // Close handlers
   if (closeBtn) closeBtn.addEventListener("click", closeEditModal);
@@ -1598,7 +1643,7 @@ function initEditModal() {
   // Category change cascade
   if (catSelect) {
     catSelect.addEventListener("change", (e) => {
-      updateEditSubcategories(e.target.value);
+      renderSubcategoryCheckboxes("edit-subcategories-group", e.target.value, []);
     });
   }
 
@@ -1669,12 +1714,19 @@ function initEditModal() {
         return;
       }
 
+      const checkedEditSubs = Array.from(document.querySelectorAll("#edit-subcategories-group input[type='checkbox']:checked")).map(cb => cb.value);
+      if (checkedEditSubs.length === 0) {
+        showToast("กรุณาเลือกประเภทย่อยอย่างน้อย 1 ประเภท (หรือกด 'เลือกทั้งหมด')", "warning");
+        return;
+      }
+
       saveBtn.classList.add("btn-loading");
       saveBtn.disabled = true;
 
       try {
         currentEditDoc.category_id = $("#edit-category").value;
-        currentEditDoc.subcategory = $("#edit-subcategory").value;
+        currentEditDoc.subcategories = checkedEditSubs;
+        currentEditDoc.subcategory = checkedEditSubs.join(", ");
         currentEditDoc.title = title;
         currentEditDoc.version = version;
         currentEditDoc.status = $("#edit-status").value;
@@ -2454,7 +2506,7 @@ function renderAIDocuments(docs) {
         <div class="doc-title-area">
           <div class="ai-badge">✨ แนะนำโดย AI</div>
           <div class="doc-title">${doc.title}</div>
-          <div class="doc-sub">${doc.subcategory}</div>
+          ${formatDocSubcategoriesBadge(doc)}
         </div>
         <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
       </div>

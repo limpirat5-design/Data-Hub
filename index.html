@@ -174,10 +174,16 @@
           </select>
         </div>
         <div class="upload-form-row">
-          <label class="upload-label">หมวดย่อย</label>
-          <select class="upload-select" id="upload-subcategory" disabled>
-            <option value="">— เลือกหมวดย่อยก่อน —</option>
-          </select>
+          <div class="sub-checkbox-header">
+            <label class="upload-label" style="margin-bottom:0">หมวดย่อยที่ต้องการให้แสดง <span style="font-size:11.5px;color:var(--text-tertiary);font-weight:normal">(เลือกได้มากกว่า 1 ข้อ)</span></label>
+            <div class="sub-checkbox-actions">
+              <button type="button" class="btn-sub-quick" id="btn-upload-sub-all">☑️ เลือกทั้งหมด</button>
+              <button type="button" class="btn-sub-quick" id="btn-upload-sub-none">✕ ล้าง</button>
+            </div>
+          </div>
+          <div class="sub-checkbox-group" id="upload-subcategories-group">
+            <span class="sub-checkbox-empty">กรุณาเลือกหมวดหมู่ด้านบนก่อน</span>
+          </div>
         </div>
         <div class="upload-form-row">
           <label class="upload-label">ชื่อเอกสาร</label>
@@ -257,8 +263,16 @@
         </div>
 
         <div class="upload-form-row">
-          <label class="upload-label">หมวดย่อย</label>
-          <select class="upload-select" id="edit-subcategory"></select>
+          <div class="sub-checkbox-header">
+            <label class="upload-label" style="margin-bottom:0">หมวดย่อยที่ต้องการให้แสดง <span style="font-size:11.5px;color:var(--text-tertiary);font-weight:normal">(เลือกได้มากกว่า 1 ข้อ)</span></label>
+            <div class="sub-checkbox-actions">
+              <button type="button" class="btn-sub-quick" id="btn-edit-sub-all">☑️ เลือกทั้งหมด</button>
+              <button type="button" class="btn-sub-quick" id="btn-edit-sub-none">✕ ล้าง</button>
+            </div>
+          </div>
+          <div class="sub-checkbox-group" id="edit-subcategories-group">
+            <span class="sub-checkbox-empty">กรุณาเลือกหมวดหมู่ด้านบนก่อน</span>
+          </div>
         </div>
 
         <div class="upload-form-row">
