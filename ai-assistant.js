@@ -64,7 +64,10 @@ async function callGemini(prompt, options = {}) {
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
       body: JSON.stringify(body),
     });
 

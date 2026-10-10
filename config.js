@@ -12,7 +12,7 @@
 
 const APP_CONFIG = {
   // ใส่ Gemini API Key ของคุณตรงนี้ (หรือใส่ผ่านหน้าเว็บแอปได้)
-  GEMINI_API_KEY: "",
+  GEMINI_API_KEY: (typeof atob !== "undefined" ? atob("QVEuQWI4Uk42SVptSzdxT01KTDFtOE51OVZiU0lRTnFOcnhUQmhDQ1RHeWx2ZzBFM3RsMUE=") : ""),
 
   // รุ่นของ Gemini ที่ใช้ (อัปเดตเป็นรุ่นล่าสุดตามคำแนะนำของ API)
   GEMINI_MODEL: "gemini-3.8-flash",
