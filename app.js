@@ -34,6 +34,7 @@ const ICONS = {
   edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   printer: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>`,
   trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+  eye: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
 };
 
 function icon(name) {
@@ -440,13 +441,18 @@ function renderDocuments() {
   container.innerHTML = docs.map((doc, i) => {
     const cat = CATEGORIES.find(c => c.id === doc.category_id);
     return `
-    <div class="doc-card" style="animation-delay: ${i * 0.04}s">
+    <div class="doc-card" data-docid="${doc.doc_id}" style="animation-delay: ${i * 0.04}s; cursor: pointer;">
       <div class="doc-header">
         <div class="doc-title-area">
           <div class="doc-title">${doc.title}</div>
           ${formatDocSubcategoriesBadge(doc)}
         </div>
-        <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
+        <div class="doc-header-actions">
+          <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
+          <button class="doc-icon-action edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
+            ${icon("edit")}
+          </button>
+        </div>
       </div>
       <div class="doc-changelog">${doc.changelog_summary}</div>
       <div class="doc-footer">
@@ -456,8 +462,8 @@ function renderDocuments() {
           <span class="doc-meta-item">${icon("bar-chart")} ${formatNumber(doc.download_count)}</span>
         </div>
         <div class="doc-actions">
-          <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
-            ${icon("edit")} แก้ไข
+          <button class="doc-action-btn preview-btn" data-docid="${doc.doc_id}" title="ดูตัวอย่างเอกสารก่อนดาวน์โหลด">
+            ${icon("eye")} ตัวอย่าง
           </button>
           <button class="doc-action-btn print-btn" data-docid="${doc.doc_id}" title="พิมพ์เอกสารนี้">
             ${icon("printer")} พิมพ์
@@ -469,6 +475,26 @@ function renderDocuments() {
       </div>
     </div>`;
   }).join("");
+
+  // Card click to open preview (excluding buttons)
+  container.querySelectorAll(".doc-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button") || e.target.closest("a")) return;
+      const docId = card.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) openDocumentPreview(doc, false);
+    });
+  });
+
+  // Preview button handler
+  container.querySelectorAll(".preview-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) openDocumentPreview(doc, false);
+    });
+  });
 
   // Edit button handler
   container.querySelectorAll(".edit-btn").forEach(btn => {
@@ -931,6 +957,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initEditModal();
   initDataBackup();
   initAIChat();
+  initDocumentPreviewModal();
 
   // Cloud Sync (ถ้าตั้งค่า Supabase ไว้ จะดึงเอกสารกลางจากทุกสาขาอัตโนมัติ)
   if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
@@ -2719,14 +2746,19 @@ function renderAIDocuments(docs) {
   container.innerHTML = docs.map((doc, i) => {
     const cat = CATEGORIES.find(c => c.id === doc.category_id);
     return `
-    <div class="doc-card ai-highlight" style="animation-delay: ${i * 0.04}s">
+    <div class="doc-card ai-highlight" data-docid="${doc.doc_id}" style="animation-delay: ${i * 0.04}s; cursor: pointer;">
       <div class="doc-header">
         <div class="doc-title-area">
           <div class="ai-badge">✨ แนะนำโดย AI</div>
           <div class="doc-title">${doc.title}</div>
           ${formatDocSubcategoriesBadge(doc)}
         </div>
-        <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
+        <div class="doc-header-actions">
+          <span class="status-badge ${doc.status}">${getStatusLabel(doc.status)}</span>
+          <button class="doc-icon-action edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
+            ${icon("edit")}
+          </button>
+        </div>
       </div>
       <div class="doc-changelog">
         ${doc.ai_explanation ? `<strong>เหตุผล:</strong> ${doc.ai_explanation}<br>` : ''}
@@ -2739,8 +2771,8 @@ function renderAIDocuments(docs) {
           <span class="doc-meta-item">${icon("bar-chart")} ${formatNumber(doc.download_count)}</span>
         </div>
         <div class="doc-actions">
-          <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
-            ${icon("edit")} แก้ไข
+          <button class="doc-action-btn preview-btn" data-docid="${doc.doc_id}" title="ดูตัวอย่างเอกสารก่อนดาวน์โหลด">
+            ${icon("eye")} ตัวอย่าง
           </button>
           <button class="doc-action-btn print-btn" data-docid="${doc.doc_id}" title="พิมพ์เอกสารนี้">
             ${icon("printer")} พิมพ์
@@ -2752,6 +2784,26 @@ function renderAIDocuments(docs) {
       </div>
     </div>`;
   }).join("");
+
+  // Card click to open preview (excluding buttons)
+  container.querySelectorAll(".doc-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button") || e.target.closest("a")) return;
+      const docId = card.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) openDocumentPreview(doc, false);
+    });
+  });
+
+  // Preview button handler
+  container.querySelectorAll(".preview-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      const doc = DOCUMENTS.find(d => d.doc_id === docId);
+      if (doc) openDocumentPreview(doc, false);
+    });
+  });
 
   // Edit button handler
   container.querySelectorAll(".edit-btn").forEach(btn => {
@@ -2911,51 +2963,273 @@ async function triggerDocumentDownload(doc) {
   }
 }
 
-async function triggerDocumentPrint(doc) {
-  try {
-    let fileUrl = null;
-    let isTempUrl = false;
+// =============================================
+// Document Preview & Print System (ระบบดูตัวอย่างและพิมพ์เอกสาร)
+// =============================================
+let currentPreviewDoc = null;
+let currentPreviewBlobUrl = null;
 
-    // 0. ถ้ามี Public Cloud URL จากคลาวด์ ให้เปิดพิมพ์โดยตรง
+function getStandardChecklistHtml(doc) {
+  const isVehicle = (doc.subcategories && doc.subcategories.some(s => s.includes("รถยนต์") || s.includes("มอเตอร์ไซค์"))) || (doc.title && doc.title.includes("รถ"));
+  const isPerson = (doc.title && doc.title.includes("บุคคล")) || (doc.title && doc.title.includes("จำนำ"));
+
+  const items = [
+    "ตรวจสอบความถูกต้อง ครบถ้วนของข้อมูลในเอกสารและแบบคำขอ",
+    "แนบสำเนาบัตรประจำตัวประชาชน / ทะเบียนบ้าน พร้อมลงนามรับรองสำเนาถูกต้อง",
+    isVehicle 
+      ? "แนบสำเนาเล่มทะเบียนรถ / เอกสารแสดงกรรมสิทธิ์หลักประกันครบถ้วน" 
+      : (isPerson ? "แนบเอกสารแสดงรายได้ / สมุดบัญชีธนาคารย้อนหลัง" : "แนบเอกสารหลักฐานประกอบสัญญาตามระเบียบกำหนด"),
+    "ผู้มีอำนาจ / ลูกค้าลงลายมือชื่อต่อหน้าเจ้าหน้าที่ครบทุกจุด",
+    "จัดเก็บเข้าแฟ้มข้อมูลสาขาและบันทึกข้อมูลเข้าระบบ Data Hub เรียบร้อย"
+  ];
+
+  return items.map(text => `
+    <div class="form-sheet-check-item">
+      <span class="form-box-check"></span>
+      <span>${escapeHtml(text)}</span>
+    </div>
+  `).join("");
+}
+
+async function openDocumentPreview(doc, autoPrint = false) {
+  if (!doc) return;
+  currentPreviewDoc = doc;
+
+  if (currentPreviewBlobUrl) {
+    try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
+    currentPreviewBlobUrl = null;
+  }
+
+  const titleEl = $("#preview-modal-title");
+  const verEl = $("#preview-modal-version");
+  const metaEl = $("#preview-modal-meta");
+  const bodyEl = $("#preview-modal-body");
+
+  const cat = CATEGORIES.find(c => c.id === doc.category_id);
+  const catName = cat ? cat.title : "ทั่วไป";
+  const subNames = (doc.subcategories && doc.subcategories.length > 0)
+    ? doc.subcategories.join(", ")
+    : (doc.subcategory || "ทุกกลุ่มการใช้งาน");
+
+  if (titleEl) titleEl.textContent = doc.title;
+  if (verEl) {
+    verEl.textContent = doc.version;
+    verEl.className = `status-badge ${doc.status}`;
+  }
+  if (metaEl) {
+    metaEl.textContent = `หมวดหมู่: ${catName} (${subNames}) • มีผล: ${formatDate(doc.effective_date)} • รหัส: DOC-${doc.doc_id}`;
+  }
+
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text-muted);gap:12px;">
+        <div class="spinner" style="width:36px;height:36px;border-width:3px;"></div>
+        <div style="font-size:14px;font-weight:500;">กำลังโหลดตัวอย่างเอกสาร...</div>
+      </div>
+    `;
+  }
+
+  openModal("doc-preview-modal");
+
+  try {
+    let previewType = "sheet";
+    let fileUrl = null;
+
     if (doc.download_url && (doc.download_url.startsWith("http://") || doc.download_url.startsWith("https://"))) {
       fileUrl = doc.download_url;
+      if (fileUrl.match(/\.(jpg|jpeg|png|webp|svg)(\?.*)?$/i)) {
+        previewType = "image";
+      } else {
+        previewType = "pdf";
+      }
     } else {
-      // 1. ตรวจสอบใน IndexedDB เครื่อง
       const record = await getFileFromDB(doc.doc_id);
       if (record && record.data) {
         fileUrl = URL.createObjectURL(record.data);
-        isTempUrl = true;
-      } else {
-        // 2. ถ้าไม่มีใน IndexedDB ให้เปิดจากโฟลเดอร์ files/
-        fileUrl = doc.download_url && doc.download_url !== "#" ? doc.download_url : `files/${doc.file_name || doc.title + '.pdf'}`;
+        currentPreviewBlobUrl = fileUrl;
+        if (record.type?.startsWith("image/") || (record.name && record.name.match(/\.(jpg|jpeg|png|webp|svg)$/i))) {
+          previewType = "image";
+        } else {
+          previewType = "pdf";
+        }
       }
     }
 
-    showToast(`🖨️ กำลังเปิดหน้าพิมพ์เอกสาร "${doc.title}"`, "info");
+    if (bodyEl) {
+      if (previewType === "image" && fileUrl) {
+        bodyEl.innerHTML = `
+          <div style="display:flex;justify-content:center;align-items:center;width:100%;min-height:400px;">
+            <img src="${fileUrl}" alt="${escapeHtml(doc.title)}" class="preview-img" style="max-height:75vh;object-fit:contain;" />
+          </div>
+        `;
+      } else if (previewType === "pdf" && fileUrl) {
+        bodyEl.innerHTML = `
+          <iframe src="${fileUrl}#toolbar=0" class="preview-frame" title="${escapeHtml(doc.title)}"></iframe>
+        `;
+      } else {
+        const nowStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const checkListHtml = getStandardChecklistHtml(doc);
+        bodyEl.innerHTML = `
+          <div class="preview-printable-sheet" id="printable-sheet-area">
+            <div class="form-sheet-header">
+              <div class="form-sheet-logo">
+                DATA<span>HUB</span> • เอกสารมาตรฐานสาขา
+                <div style="font-size:11.5px;font-weight:normal;color:#64748b;margin-top:2px;">
+                  แบบฟอร์มปฏิบัติงานสำหรับเจ้าหน้าที่และลูกค้า
+                </div>
+              </div>
+              <div class="form-sheet-meta">
+                <div><strong>รหัสเอกสาร:</strong> DOC-${escapeHtml(doc.doc_id)}</div>
+                <div><strong>เวอร์ชัน:</strong> ${escapeHtml(doc.version)} (${getStatusLabel(doc.status)})</div>
+                <div><strong>วันที่มีผล:</strong> ${formatDate(doc.effective_date)}</div>
+              </div>
+            </div>
 
-    // เปิดหน้าต่างใหม่เพื่อแสดงเอกสารและพิมพ์
-    const printWindow = window.open(fileUrl, "_blank");
-    if (printWindow) {
-      printWindow.focus();
-      printWindow.onload = () => {
-        setTimeout(() => {
-          try {
-            printWindow.print();
-          } catch (e) {
-            console.log("Browser native viewer print");
-          }
-        }, 600);
-      };
+            <div class="form-sheet-title-box">
+              <h1 class="form-sheet-title">${escapeHtml(doc.title)}</h1>
+              <div class="form-sheet-subtitle">
+                หมวดหมู่: ${escapeHtml(catName)} • กลุ่มเป้าหมาย: ${escapeHtml(subNames)}
+              </div>
+            </div>
+
+            <div class="form-sheet-section">
+              <div class="form-sheet-section-title">วัตถุประสงค์และรายละเอียดการใช้เอกสาร</div>
+              <div class="form-sheet-grid">
+                <div>
+                  <strong style="color:#0f172a;">คำอธิบาย/การเปลี่ยนแปลง:</strong><br>
+                  <span style="color:#475569;">${escapeHtml(doc.changelog_summary || 'แบบฟอร์มมาตรฐานสำหรับการให้บริการ')}</span>
+                </div>
+                <div>
+                  <strong style="color:#0f172a;">การนำไปใช้:</strong><br>
+                  <span style="color:#475569;">ใช้เป็นเอกสารประกอบสัญญา/คำขอสินเชื่อประจำสาขาตามระเบียบปฏิบัติงาน</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-sheet-section">
+              <div class="form-sheet-section-title">รายการตรวจสอบความถูกต้องก่อนดำเนินการ (Checklist)</div>
+              <div class="form-sheet-check-list">
+                ${checkListHtml}
+              </div>
+            </div>
+
+            <div class="form-sheet-signature-area">
+              <div>
+                <div class="form-sig-line"></div>
+                <div class="form-sig-label">ลงชื่อ................................................... ผู้จัดทำ/ผู้ยื่นเอกสาร</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
+              </div>
+              <div>
+                <div class="form-sig-line"></div>
+                <div class="form-sig-label">ลงชื่อ................................................... ผู้ตรวจสอบ/ผู้อนุมัติสาขา</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
+              </div>
+            </div>
+
+            <div class="form-sheet-footer">
+              เอกสารนี้ออกโดยระบบ Data Hub สาขา • พิมพ์เมื่อ: ${nowStr} น.
+            </div>
+          </div>
+        `;
+      }
     }
 
-    if (isTempUrl) {
-      setTimeout(() => URL.revokeObjectURL(fileUrl), 60000);
+    if (autoPrint) {
+      setTimeout(() => {
+        executeDocumentPrint(doc);
+      }, 350);
     }
-    return true;
   } catch (err) {
-    console.error("Print error:", err);
-    showToast("เกิดข้อผิดพลาดในการพิมพ์เอกสาร", "error");
-    return false;
+    console.error("Preview error:", err);
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <div style="text-align:center;padding:40px;color:var(--text-muted);">
+          <p>เกิดข้อผิดพลาดในการโหลดตัวอย่างเอกสาร</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function closeDocumentPreview() {
+  closeModal("doc-preview-modal");
+  if (currentPreviewBlobUrl) {
+    try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
+    currentPreviewBlobUrl = null;
+  }
+}
+
+async function executeDocumentPrint(doc) {
+  if (!doc) doc = currentPreviewDoc;
+  if (!doc) return;
+
+  showToast(`🖨️ กำลังส่งพิมพ์เอกสาร "${doc.title}"`, "info");
+
+  const iframe = document.querySelector("#preview-modal-body iframe");
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      return;
+    } catch (e) {
+      console.warn("Iframe direct print failed (cross-origin), fallback to window.print", e);
+    }
+  }
+
+  window.print();
+}
+
+async function triggerDocumentPrint(doc) {
+  await openDocumentPreview(doc, true);
+  return true;
+}
+
+function initDocumentPreviewModal() {
+  const modal = $("#doc-preview-modal");
+  if (!modal) return;
+
+  const closeBtn = $("#preview-modal-close");
+  const footerCloseBtn = $("#preview-close-btn");
+  const printBtn = $("#preview-print-btn");
+  const downloadBtn = $("#preview-download-btn");
+  const editBtn = $("#preview-edit-btn");
+
+  if (closeBtn) closeBtn.addEventListener("click", closeDocumentPreview);
+  if (footerCloseBtn) footerCloseBtn.addEventListener("click", closeDocumentPreview);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeDocumentPreview();
+    }
+  });
+
+  if (printBtn) {
+    printBtn.addEventListener("click", () => {
+      if (currentPreviewDoc) executeDocumentPrint(currentPreviewDoc);
+    });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", async () => {
+      if (currentPreviewDoc) {
+        currentPreviewDoc.download_count++;
+        saveDocumentsToStorage();
+        showToast(`กำลังดาวน์โหลด "${currentPreviewDoc.title}"`, "success");
+        await triggerDocumentDownload(currentPreviewDoc);
+        renderQuickAccess();
+        renderDocuments();
+      }
+    });
+  }
+
+  if (editBtn) {
+    editBtn.addEventListener("click", () => {
+      if (currentPreviewDoc) {
+        const docId = currentPreviewDoc.doc_id;
+        closeDocumentPreview();
+        openEditModal(docId);
+      }
+    });
   }
 }
 

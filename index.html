@@ -357,6 +357,47 @@
           </button>
         </div>
       </div>
+  <!-- ===== Document Preview & Print Modal ===== -->
+  <div class="modal-overlay" id="doc-preview-modal" aria-hidden="true">
+    <div class="modal-container preview-modal-container">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-wrap" style="background:#e0f2fe;color:#0284c7">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h2 class="modal-title" id="preview-modal-title" style="margin-bottom:0">ตัวอย่างเอกสาร</h2>
+              <span class="status-badge active" id="preview-modal-version">v1.0</span>
+            </div>
+            <p class="modal-subtitle" id="preview-modal-meta">หมวดหมู่: ... | วันที่มีผล: ...</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="preview-modal-close" aria-label="ปิด">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Preview Body -->
+      <div class="preview-modal-body" id="preview-modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Preview Footer -->
+      <div class="modal-footer preview-modal-footer">
+        <button class="modal-btn-secondary" id="preview-edit-btn">
+          ✏️ แก้ไขข้อมูล
+        </button>
+        <div class="modal-footer-right">
+          <button class="modal-btn-secondary" id="preview-close-btn">ปิด</button>
+          <button class="modal-btn-primary" id="preview-print-btn" style="background:linear-gradient(135deg, #0284c7, #38bdf8);">
+            🖨️ สั่งพิมพ์เอกสาร
+          </button>
+          <button class="modal-btn-primary" id="preview-download-btn">
+            📥 ดาวน์โหลดไฟล์
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
