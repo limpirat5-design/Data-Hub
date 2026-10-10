@@ -1,0 +1,110 @@
+{
+  "project_name": "branch-smart-document-hub",
+  "version": "1.0.0",
+  "description": "Clean, minimal internal web app for managing branch loan forms, applications, and rate sheets with version control and AI assistant capabilities.",
+  "tech_stack": {
+    "frontend": "Next.js (App Router) + Tailwind CSS + Lucide Icons",
+    "backend": "Node.js (API Routes) or Python (FastAPI)",
+    "database_schema": "PostgreSQL / Supabase / Google Sheets (via Service Account)",
+    "ai_engine": "Gemini API (gemini-1.5-flash / gemini-1.5-pro)"
+  },
+  "ui_guidelines": {
+    "theme": "Clean & Minimal (Off-white / Slate gray backgrounds)",
+    "responsive": ["Desktop", "iPad/Tablet", "Mobile"],
+    "components": [
+      "Top Global Search Bar with Natural Language support",
+      "5 Category Filter Cards",
+      "Most Frequently Used Docs (Top 5 Quick Access Pins)",
+      "Document Cards with clear Active status badges and download CTA",
+      "Dropzone for uploading or scanning documents to verify version"
+    ]
+  },
+  "document_categories": [
+    {
+      "id": "new_loans",
+      "name": "สินเชื่อใหม่ / จำนำทะเบียน",
+      "subcategories": [
+        "รถจักรยานยนต์ (มอเตอร์ไซค์)",
+        "รถยนต์ส่วนบุคคล / รถกระบะ",
+        "รถบรรทุก / รถเชิงพาณิชย์",
+        "รถเพื่อการเกษตร (รถไถ / รถเกี่ยว)",
+        "โฉนดที่ดิน (ขายฝาก / จำนอง / จำนำที่ดิน)"
+      ]
+    },
+    {
+      "id": "refinance",
+      "name": "รีไฟแนนซ์ & ย้ายไฟแนนซ์",
+      "subcategories": [
+        "หนังสือมอบอำนาจปิดบัญชี / ย้ายไฟแนนซ์",
+        "แบบขอตรวจสอบภาระหนี้เดิม",
+        "สัญญาต่อยอด / เพิ่มวงเงิน"
+      ]
+    },
+    {
+      "id": "income_kyc",
+      "name": "เอกสารแสดงรายได้ & KYC",
+      "subcategories": [
+        "หนังสือรับรองรายได้ / สลิปเงินเดือน",
+        "แบบสำรวจอาชีพอิสระ / เอกสารเกษตรกร",
+        "หนังสือยินยอมเปิดเผยข้อมูล (NCB / PDPA)"
+      ]
+    },
+    {
+      "id": "branch_requests",
+      "name": "แบบคำขอ & งานบริการสาขา",
+      "subcategories": [
+        "แบบคำขอเปลี่ยนแปลงเงื่อนไข / พักชำระหนี้ / ผ่อนผัน",
+        "คำขอโอนกรรมสิทธิ์ / ปิดบัญชี / เบิกเล่มทะเบียนคืน",
+        "แบบคำขอเปลี่ยนผู้ค้ำประกัน",
+        "แบบฟอร์มประกันและไชโยแคร์"
+      ]
+    },
+    {
+      "id": "sale_sheets",
+      "name": "สื่อส่งเสริมการขาย & Sale Sheet (Live Updates)",
+      "subcategories": [
+        "ตารางอัตราดอกเบี้ยและค่างวด (Rate Sheet ล่าสุด)",
+        "สรุปผลิตภัณฑ์ประจำเดือน (Sale Sheet)",
+        "โปรโมชันและแคมเปญส่งเสริมการขาย",
+        "เกณฑ์ราคากลางประเมินยานพาหนะ"
+      ]
+    }
+  ],
+  "database_fields": {
+    "doc_id": "string (unique identifier, e.g. DOC-001)",
+    "category_id": "string",
+    "subcategory": "string",
+    "title": "string",
+    "version": "string (e.g. v2.4)",
+    "effective_date": "YYYY-MM-DD",
+    "status": "enum('active', 'upcoming', 'archived')",
+    "download_url": "string",
+    "changelog_summary": "string",
+    "download_count": "number (default 0)",
+    "last_updated_by": "string (branch name or user)"
+  },
+  "ai_agent_instructions": {
+    "version_check": {
+      "task": "Inspect uploaded files against database active versions.",
+      "rule": "If the user uploads or checks a file with an older date/version code, warn immediately and provide the direct active download link."
+    },
+    "change_summary": {
+      "task": "Compare new version against previous version.",
+      "output_format": "2-3 short Thai bullet points explaining what clauses, rates, or sections changed."
+    },
+    "semantic_search": {
+      "task": "Map user conversational queries (e.g., 'ลูกค้าจำนำรถไถต้องใช้เอกสารอะไรบ้าง') to recommended document bundles.",
+      "output": "Return array of matching document IDs with Active status."
+    },
+    "auto_tagging": {
+      "task": "Perform OCR on uploaded PDF/Image to auto-populate title, category, effective date, and version."
+    }
+  },
+  "implementation_tasks": [
+    "Step 1: Setup Next.js Tailwind project scaffold with mobile/tablet responsive layout.",
+    "Step 2: Create mock data store based on the 5 document categories and schema.",
+    "Step 3: Build Dashboard UI with search bar, Top 5 most used pins, and category filters.",
+    "Step 4: Implement document upload modal with drag-and-drop file verification.",
+    "Step 5: Integrate Gemini API route for semantic search, changelog summarization, and version checking."
+  ]
+}

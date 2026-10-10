@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Smart Document Hub — ศูนย์รวมเอกสารสาขา</title>
+  <meta name="description" content="ศูนย์รวมเอกสารสาขา ค้นหาแบบฟอร์มสินเชื่อ สัญญา และสื่อส่งเสริมการขายเวอร์ชันล่าสุด">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===== Top Navigation ===== -->
+  <nav class="top-nav" id="top-nav">
+    <div class="nav-inner">
+      <!-- Logo -->
+      <div class="logo">
+        <div class="logo-icon">SD</div>
+        <div class="logo-text">Smart<span>Doc</span></div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <span class="search-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </span>
+        <input type="text"
+               class="search-bar"
+               id="search-input"
+               placeholder="ค้นหาเอกสาร เช่น สินเชื่อรถไถ, Rate Sheet, PDPA..."
+               autocomplete="off">
+        <button class="search-clear" id="search-clear" aria-label="ล้างการค้นหา">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Nav Right -->
+      <div class="nav-right">
+        <button class="nav-btn" id="btn-export" aria-label="สำรองข้อมูล" title="สำรองข้อมูล (Export JSON)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-import" aria-label="กู้คืนข้อมูล" title="กู้คืนข้อมูล (Import JSON)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="17 8 12 3 7 8"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+        </button>
+        <input type="file" id="import-file-input" accept=".json" hidden>
+        <div class="nav-divider"></div>
+        <button class="nav-btn" id="btn-upload" aria-label="อัปโหลดเอกสาร" title="อัปโหลดเอกสาร">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-notifications" aria-label="การแจ้งเตือน" title="การแจ้งเตือน">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== Main Content ===== -->
+  <main class="app-wrapper">
+
+    <!-- Hero / Welcome -->
+    <section class="hero-section">
+      <h1 class="hero-greeting">📄 ศูนย์รวมเอกสารสาขา</h1>
+      <p class="hero-subtitle">ค้นหาแบบฟอร์ม สัญญา และสื่อส่งเสริมการขายเวอร์ชันล่าสุด — ใช้งานได้ทันที</p>
+    </section>
+
+    <!-- Category Filter Cards -->
+    <section class="categories-section">
+      <div class="section-heading">
+        <h2>หมวดหมู่เอกสาร</h2>
+      </div>
+      <div class="category-grid" id="category-grid">
+        <!-- rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Top 5 Quick Access -->
+    <section class="quick-access-section">
+      <div class="section-heading">
+        <h2>📌 เอกสารยอดนิยม Top 5</h2>
+      </div>
+      <div class="quick-grid" id="quick-grid">
+        <!-- rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Document List -->
+    <section class="documents-section">
+      <div class="section-heading">
+        <h2>เอกสารทั้งหมด</h2>
+      </div>
+      <!-- Subcategory filters (shows when category is selected) -->
+      <div class="sub-filters" id="sub-filters" style="display:none">
+        <!-- rendered by JS -->
+      </div>
+      <div class="doc-grid" id="doc-grid">
+        <!-- rendered by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== Upload Modal ===== -->
+  <div class="modal-overlay" id="upload-modal" aria-hidden="true">
+    <div class="modal-container upload-modal-container">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          </div>
+          <div>
+            <h2 class="modal-title">อัปโหลด / ตรวจสอบเอกสาร</h2>
+            <p class="modal-subtitle">ลากไฟล์มาวาง หรือคลิกเลือกไฟล์ เพื่อตรวจสอบว่าเป็นเวอร์ชันล่าสุดหรือไม่</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="upload-modal-close" aria-label="ปิด">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Dropzone -->
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-content">
+          <div class="dropzone-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          </div>
+          <p class="dropzone-text">ลากไฟล์มาวางตรงนี้</p>
+          <p class="dropzone-subtext">หรือ <button class="dropzone-browse" id="dropzone-browse">เลือกไฟล์จากเครื่อง</button></p>
+          <p class="dropzone-hint">รองรับ PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (สูงสุด 25 MB)</p>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" multiple hidden>
+      </div>
+
+      <!-- Quick manual form toggle -->
+      <div style="text-align:center;margin:-10px 0 16px;">
+        <button type="button" class="ai-chip" id="btn-toggle-manual-form">✍️ หรือกรอกข้อมูลเอกสารใหม่โดยตรง</button>
+      </div>
+
+      <!-- File List (after files are added) -->
+      <div class="upload-file-list" id="upload-file-list" style="display:none">
+        <!-- rendered by JS -->
+      </div>
+
+      <!-- Version Check Results -->
+      <div class="version-check-results" id="version-check-results" style="display:none">
+        <!-- rendered by JS -->
+      </div>
+
+      <!-- Category Selection for new upload -->
+      <div class="upload-form" id="upload-form" style="display:none">
+        <div class="upload-form-row">
+          <label class="upload-label">หมวดหมู่เอกสาร</label>
+          <select class="upload-select" id="upload-category">
+            <option value="">— เลือกหมวดหมู่ —</option>
+          </select>
+        </div>
+        <div class="upload-form-row">
+          <label class="upload-label">หมวดย่อย</label>
+          <select class="upload-select" id="upload-subcategory" disabled>
+            <option value="">— เลือกหมวดย่อยก่อน —</option>
+          </select>
+        </div>
+        <div class="upload-form-row">
+          <label class="upload-label">ชื่อเอกสาร</label>
+          <input type="text" class="upload-input" id="upload-title" placeholder="เช่น ใบสมัครสินเชื่อรถจักรยานยนต์">
+        </div>
+        <div class="upload-form-row">
+          <label class="upload-label">ชื่อไฟล์เอกสาร (เช่น contract.pdf)</label>
+          <input type="text" class="upload-input" id="upload-filename" placeholder="จะใส่ให้อัตโนมัติเมื่อเลือกไฟล์ หรือตั้งชื่อเองได้">
+        </div>
+        <div class="upload-form-row-half">
+          <div class="upload-form-row">
+            <label class="upload-label">เวอร์ชัน</label>
+            <input type="text" class="upload-input" id="upload-version" placeholder="เช่น v3.2">
+          </div>
+          <div class="upload-form-row">
+            <label class="upload-label">วันที่มีผล</label>
+            <input type="date" class="upload-input" id="upload-date">
+          </div>
+        </div>
+        <div class="upload-form-row">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <label class="upload-label">สรุปการเปลี่ยนแปลง (Changelog)</label>
+            <button type="button" class="ai-chip" id="btn-ai-summarize" style="margin:0">✨ AI สรุป</button>
+          </div>
+          <input type="text" class="upload-input" id="upload-changelog" placeholder="เช่น ปรับข้อกำหนดและอัปเดตแบบฟอร์ม">
+        </div>
+        <div class="upload-form-row" style="margin-top:6px">
+          <button type="button" class="modal-btn-primary" id="btn-save-new-doc" style="width:100%;justify-content:center">
+            💾 บันทึกเอกสารเข้าระบบ
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="modal-btn-secondary" id="upload-reset-btn" style="display:none">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          เริ่มใหม่
+        </button>
+        <div class="modal-footer-right">
+          <button class="modal-btn-secondary" id="upload-cancel-btn">ยกเลิก</button>
+          <button class="modal-btn-primary" id="upload-check-btn" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            ตรวจสอบเวอร์ชัน
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Confirmation Modal ===== -->
+  <div class="modal-overlay" id="confirm-modal" aria-hidden="true">
+    <div class="modal-container confirm-modal-container">
+      <div class="confirm-icon" id="confirm-icon">⚠️</div>
+      <h3 class="confirm-title" id="confirm-title">ยืนยันการดำเนินการ</h3>
+      <p class="confirm-message" id="confirm-message">คุณแน่ใจหรือไม่?</p>
+      <div class="confirm-actions">
+        <button class="modal-btn-secondary" id="confirm-cancel">ยกเลิก</button>
+        <button class="modal-btn-danger" id="confirm-ok">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ===== AI Chat Panel (Floating) ===== -->
+  <div class="ai-chat-panel" id="ai-chat-panel" aria-hidden="true">
+    <div class="ai-chat-header">
+      <div class="ai-chat-header-left">
+        <div class="ai-avatar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+        </div>
+        <div>
+          <div class="ai-chat-title">SmartDoc AI</div>
+          <div class="ai-chat-status" id="ai-status-text">พร้อมช่วยเหลือ</div>
+        </div>
+      </div>
+      <button class="ai-chat-close" id="ai-chat-close" aria-label="ปิดแชท">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="ai-chat-messages" id="ai-chat-messages">
+      <!-- Welcome message -->
+      <div class="ai-msg ai-msg-bot">
+        <div class="ai-msg-avatar">🤖</div>
+        <div class="ai-msg-content">
+          <div class="ai-msg-bubble">
+            สวัสดีครับ! ผมคือ SmartDoc AI ผู้ช่วยค้นหาเอกสาร<br><br>
+            ลองถามผมได้เลย เช่น:<br>
+            • "ลูกค้าจำนำรถไถต้องใช้เอกสารอะไรบ้าง"<br>
+            • "Rate Sheet เดือนนี้มีอะไรเปลี่ยนบ้าง"<br>
+            • "เอกสาร PDPA ล่าสุดเวอร์ชันอะไร"
+          </div>
+          <div class="ai-msg-time">เมื่อสักครู่</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Key Setup Banner (shows when no API key) -->
+    <div class="ai-key-banner" id="ai-key-banner" style="display:none">
+      <div class="ai-key-icon">🔑</div>
+      <div class="ai-key-text" style="flex:1">
+        <strong>เปิดใช้งาน Gemini AI:</strong><br>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input type="password" id="input-api-key-save" placeholder="วาง API Key ที่นี่..." style="flex:1;padding:4px 8px;font-size:12px;border:1px solid #d97706;border-radius:4px;background:#fff;color:#000">
+          <button type="button" id="btn-save-key-local" style="padding:4px 10px;background:#d97706;color:#fff;border-radius:4px;font-size:12px;font-weight:600">บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-chat-input-area">
+      <input type="text"
+             class="ai-chat-input"
+             id="ai-chat-input"
+             placeholder="ถามเกี่ยวกับเอกสาร..."
+             autocomplete="off">
+      <button class="ai-chat-send" id="ai-chat-send" aria-label="ส่งข้อความ" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- AI Chat FAB (Floating Action Button) -->
+  <button class="ai-fab" id="ai-fab" aria-label="เปิด AI Chat">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+    <span class="ai-fab-label">AI ช่วยค้นหา</span>
+  </button>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="cloud-storage.js"></script>
+  <script src="data/documents.js"></script>
+  <script src="ai-assistant.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
