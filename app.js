@@ -3092,7 +3092,7 @@ async function openDocumentPreview(doc, autoPrint = false) {
         const checkListHtml = getStandardChecklistHtml(doc);
         bodyEl.innerHTML = `
           <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:700px;margin:0 auto;">
-            <div style="background:#fffbeb;border:1px solid #fde68a;padding:12px 16px;border-radius:8px;font-size:12.5px;color:#92400e;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div class="no-print" style="background:#fffbeb;border:1px solid #fde68a;padding:12px 16px;border-radius:8px;font-size:12.5px;color:#92400e;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div>
                 <strong>⚠️ ยังไม่ได้แนบไฟล์ต้นฉบับจริง (PDF / รูปภาพ) ขึ้น Cloud Storage</strong><br>
                 ระบบจึงแสดงแบบฟอร์มมาตรฐานสาขาแทน คุณสามารถอัปโหลดไฟล์จริงเพื่อแทนที่ได้ทันที
