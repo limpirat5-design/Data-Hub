@@ -35,6 +35,9 @@ create policy "Allow all insert" on documents for insert with check (true);
 drop policy if exists "Allow all update" on documents;
 create policy "Allow all update" on documents for update using (true);
 
+drop policy if exists "Allow all delete" on documents;
+create policy "Allow all delete" on documents for delete using (true);
+
 -- 3. สร้าง Storage Bucket ชื่อ 'documents' สำหรับจัดเก็บไฟล์เอกสารจริง (PDF, Word, Excel)
 insert into storage.buckets (id, name, public) 
 values ('documents', 'documents', true)
@@ -49,3 +52,6 @@ create policy "Public Upload" on storage.objects for insert with check (bucket_i
 
 drop policy if exists "Public Update" on storage.objects;
 create policy "Public Update" on storage.objects for update using (bucket_id = 'documents');
+
+drop policy if exists "Public Delete" on storage.objects;
+create policy "Public Delete" on storage.objects for delete using (bucket_id = 'documents');
