@@ -469,7 +469,7 @@ function openLoginModal(canClose = false) {
   const statusHint = $("#login-status-hint");
   if (statusIcon) statusIcon.innerHTML = "";
   if (statusHint) {
-    statusHint.textContent = "กรอกรหัสสาขา 5 หลัก";
+    statusHint.textContent = "พิมพ์ 5 หลัก เช่น 00000";
     statusHint.style.color = "var(--text-tertiary)";
   }
   if (submitBtn) {
@@ -528,7 +528,7 @@ function updateLoginDetection(code) {
     if (codeInput) codeInput.classList.remove("input-valid", "input-invalid");
     if (statusIcon) statusIcon.innerHTML = "";
     if (statusHint) {
-      statusHint.textContent = "กรอกรหัสสาขา 5 หลัก";
+      statusHint.textContent = "พิมพ์ 5 หลัก เช่น 00000";
       statusHint.style.color = "var(--text-tertiary)";
     }
     if (preview) {
