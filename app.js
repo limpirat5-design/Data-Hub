@@ -108,8 +108,43 @@ function getCategoryCount(catId) {
 }
 
 // ========================
-// Render Functions
+// Render Functions & Quick Category Upload
 // ========================
+
+function openUploadForCategory(catId = null, subcategory = null) {
+  openModal("upload-modal");
+  const form = $("#upload-form");
+  if (form) form.style.display = "flex";
+  const resetBtn = $("#upload-reset-btn");
+  if (resetBtn) resetBtn.style.display = "inline-flex";
+
+  if (catId) {
+    const catSelect = $("#upload-category");
+    const subSelect = $("#upload-subcategory");
+    if (catSelect) {
+      catSelect.value = catId;
+      if (subSelect) {
+        subSelect.innerHTML = '<option value="">— เลือกหมวดย่อย —</option>';
+        const cat = CATEGORIES.find(c => c.id === catId);
+        if (cat) {
+          cat.subcategories.forEach(sub => {
+            const opt = document.createElement("option");
+            opt.value = sub;
+            opt.textContent = sub;
+            subSelect.appendChild(opt);
+          });
+          subSelect.disabled = false;
+          if (subcategory) subSelect.value = subcategory;
+        }
+      }
+    }
+  }
+
+  setTimeout(() => {
+    const titleInput = $("#upload-title");
+    if (titleInput) titleInput.focus();
+  }, 150);
+}
 
 function renderCategories() {
   const container = $("#category-grid");
@@ -117,17 +152,32 @@ function renderCategories() {
     <div class="category-card ${state.activeCategory === cat.id ? 'active' : ''}"
          data-category="${cat.id}"
          id="cat-${cat.id}">
-      <div class="cat-icon-wrap">
-        ${icon(cat.icon)}
+      <div class="cat-card-top">
+        <div class="cat-icon-wrap">
+          ${icon(cat.icon)}
+        </div>
+        <button type="button" class="cat-quick-add-btn" data-catid="${cat.id}" title="เพิ่มเอกสารในหมวด ${cat.name}">
+          + เพิ่ม
+        </button>
       </div>
       <div class="cat-name">${cat.name}</div>
       <div class="cat-count">${getCategoryCount(cat.id)} เอกสาร</div>
     </div>
   `).join("");
 
-  // Bind click
+  // Quick add button in each category card
+  container.querySelectorAll(".cat-quick-add-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const catId = btn.dataset.catid;
+      openUploadForCategory(catId);
+    });
+  });
+
+  // Category card filter click
   container.querySelectorAll(".category-card").forEach(card => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".cat-quick-add-btn")) return;
       const catId = card.dataset.category;
       if (state.activeCategory === catId) {
         state.activeCategory = null;
@@ -227,13 +277,35 @@ function renderDocuments() {
   const container = $("#doc-grid");
   const docs = getFilteredDocuments();
 
+  // Update section heading info & add button label
+  const headingTitle = $("#doc-section-title");
+  const headingBadge = $("#doc-section-badge");
+  const headingBtnText = $("#btn-add-doc-heading-text");
+  const activeCat = state.activeCategory ? CATEGORIES.find(c => c.id === state.activeCategory) : null;
+
+  if (headingTitle) {
+    if (activeCat) {
+      headingTitle.textContent = state.activeSubcategory ? `${activeCat.name} › ${state.activeSubcategory}` : `หมวด: ${activeCat.name}`;
+    } else {
+      headingTitle.textContent = "เอกสารทั้งหมด";
+    }
+  }
+
+  if (headingBadge) {
+    headingBadge.textContent = `${docs.length} รายการ`;
+  }
+
+  if (headingBtnText) {
+    headingBtnText.textContent = activeCat ? `+ เพิ่มในหมวดนี้` : `+ เพิ่มเอกสาร`;
+  }
+
   if (DOCUMENTS.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1">
         ${icon("folder-open")}
         <p>ยังไม่มีเอกสารในระบบ</p>
-        <p class="sub">คลิกปุ่ม <strong>"อัปโหลดเอกสาร"</strong> ด้านบนขวาเพื่อเริ่มเพิ่มเอกสารจริง หรือใช้ปุ่ม Import ข้อมูล JSON</p>
-        <button class="modal-btn-primary" onclick="$('#btn-upload').click()" style="margin-top: 14px">
+        <p class="sub">คลิกปุ่ม <strong>"เพิ่มเอกสาร"</strong> เพื่อเริ่มเพิ่มเอกสารจริงเข้าสู่ระบบ</p>
+        <button class="modal-btn-primary" onclick="openUploadForCategory('${state.activeCategory || ''}', '${state.activeSubcategory || ''}')" style="margin-top: 14px">
           ${icon("upload")} เพิ่มเอกสารใหม่
         </button>
       </div>`;
@@ -241,11 +313,15 @@ function renderDocuments() {
   }
 
   if (docs.length === 0) {
+    const catName = activeCat ? activeCat.name : "หมวดนี้";
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1">
         ${icon("folder-open")}
-        <p>ไม่พบเอกสารที่ตรงกับการค้นหา</p>
-        <p class="sub">ลองค้นหาด้วยคำอื่น หรือคลิกดูหมวดหมู่อื่น</p>
+        <p>${state.activeCategory ? `ยังไม่มีเอกสารในหมวด "${catName}"` : 'ไม่พบเอกสารที่ตรงกับการค้นหา'}</p>
+        <p class="sub">คลิกปุ่มด้านล่างเพื่อเพิ่มเอกสารใหม่ลงในหมวดนี้ได้ทันที</p>
+        <button class="modal-btn-primary" onclick="openUploadForCategory('${state.activeCategory || ''}', '${state.activeSubcategory || ''}')" style="margin-top: 14px">
+          ${icon("upload")} + เพิ่มเอกสารในหมวดนี้
+        </button>
       </div>`;
     return;
   }
@@ -783,8 +859,12 @@ function initUploadModal() {
   const checkBtn   = $("#upload-check-btn");
   const uploadBtn  = $("#btn-upload");
 
-  // Open modal
-  uploadBtn.addEventListener("click", () => openModal("upload-modal"));
+  // Open modal from nav & heading buttons
+  uploadBtn.addEventListener("click", () => openUploadForCategory(state.activeCategory, state.activeSubcategory));
+  const headingAddBtn = $("#btn-add-doc-heading");
+  if (headingAddBtn) {
+    headingAddBtn.addEventListener("click", () => openUploadForCategory(state.activeCategory, state.activeSubcategory));
+  }
 
   // Close modal
   closeBtn.addEventListener("click",  () => closeUploadModal());

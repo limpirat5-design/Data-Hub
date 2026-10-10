@@ -52,8 +52,9 @@
         </button>
         <input type="file" id="import-file-input" accept=".json" hidden>
         <div class="nav-divider"></div>
-        <button class="nav-btn" id="btn-upload" aria-label="อัปโหลดเอกสาร" title="อัปโหลดเอกสาร">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <button class="nav-btn nav-btn-upload" id="btn-upload" aria-label="เพิ่มเอกสาร" title="เพิ่มเอกสารใหม่">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span class="nav-btn-upload-label">เพิ่มเอกสาร</span>
         </button>
       </div>
     </div>
@@ -91,7 +92,14 @@
     <!-- Document List -->
     <section class="documents-section">
       <div class="section-heading">
-        <h2>เอกสารทั้งหมด</h2>
+        <div class="section-heading-left" style="display:flex;align-items:center;gap:10px;">
+          <h2 id="doc-section-title">เอกสารทั้งหมด</h2>
+          <span class="doc-section-badge" id="doc-section-badge">ทั้งหมด</span>
+        </div>
+        <button type="button" class="btn-add-doc-section" id="btn-add-doc-heading">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="btn-add-doc-heading-text">+ เพิ่มเอกสาร</span>
+        </button>
       </div>
       <!-- Subcategory filters (shows when category is selected) -->
       <div class="sub-filters" id="sub-filters" style="display:none">
