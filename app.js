@@ -629,18 +629,27 @@ function showToast(message, type = "success") {
 let currentBranch = null;
 
 function loadActiveBranch() {
-  // บังคับให้ต้อง Login ก่อนเข้าใช้งานทุกครั้ง (ไม่จำค้างข้ามครั้ง)
-  currentBranch = null;
   try {
-    localStorage.removeItem("branch_hub_active_branch");
-    sessionStorage.removeItem("branch_hub_active_branch");
+    const saved = localStorage.getItem("branch_hub_active_branch") || sessionStorage.getItem("branch_hub_active_branch");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.code) {
+        currentBranch = parsed;
+        updateBranchBadgeUI(parsed);
+        return parsed;
+      }
+    }
   } catch (e) {}
+  currentBranch = null;
   updateBranchBadgeUI(null);
   return null;
 }
 
 function setActiveBranch(branch) {
   currentBranch = branch;
+  try {
+    localStorage.setItem("branch_hub_active_branch", JSON.stringify(branch));
+  } catch (e) {}
   updateBranchBadgeUI(branch);
 }
 
@@ -836,13 +845,13 @@ function initBranchAuth() {
   const modal = $("#login-modal");
   const pwdToggleBtn = $("#btn-login-pwd-toggle");
 
-  // ล้างสถานะเดิมเสมอ เพื่อบังคับให้ Login ใหม่ทุกครั้งที่เปิดเข้าใช้งาน
-  clearActiveBranch();
-
-  // บังคับแสดงหน้าต่าง Login ทันที และไม่อนุญาตให้ปิดจนกว่าจะใส่รหัสสาขาถูกต้อง
-  setTimeout(() => {
-    openLoginModal(false);
-  }, 100);
+  // ตรวจสอบว่าเคยเข้าสู่ระบบไว้แล้วหรือไม่ ถ้ายังไม่เคยให้แสดงหน้าต่างเข้าสู่ระบบ
+  const existingBranch = loadActiveBranch();
+  if (!existingBranch) {
+    setTimeout(() => {
+      openLoginModal(false);
+    }, 120);
+  }
 
   if (codeInput) {
     codeInput.addEventListener("input", (e) => {
