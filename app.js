@@ -401,24 +401,18 @@ function showToast(message, type = "success") {
 let currentBranch = null;
 
 function loadActiveBranch() {
+  // บังคับให้ต้อง Login ก่อนเข้าใช้งานทุกครั้ง (ไม่จำค้างข้ามครั้ง)
+  currentBranch = null;
   try {
-    const saved = localStorage.getItem("branch_hub_active_branch");
-    if (saved) {
-      currentBranch = JSON.parse(saved);
-      updateBranchBadgeUI(currentBranch);
-      return currentBranch;
-    }
-  } catch (e) {
-    console.warn("Could not load branch auth:", e);
-  }
+    localStorage.removeItem("branch_hub_active_branch");
+    sessionStorage.removeItem("branch_hub_active_branch");
+  } catch (e) {}
+  updateBranchBadgeUI(null);
   return null;
 }
 
 function setActiveBranch(branch) {
   currentBranch = branch;
-  try {
-    localStorage.setItem("branch_hub_active_branch", JSON.stringify(branch));
-  } catch (e) {}
   updateBranchBadgeUI(branch);
 }
 
@@ -426,6 +420,7 @@ function clearActiveBranch() {
   currentBranch = null;
   try {
     localStorage.removeItem("branch_hub_active_branch");
+    sessionStorage.removeItem("branch_hub_active_branch");
   } catch (e) {}
   updateBranchBadgeUI(null);
 }
@@ -454,7 +449,7 @@ function populateLoginBranchSelect() {
     BRANCHES.map(b => `<option value="${b.code}">${b.name} (${b.code})</option>`).join("");
 }
 
-function openLoginModal(canClose = true) {
+function openLoginModal(canClose = false) {
   const modal = $("#login-modal");
   if (!modal) return;
 
@@ -466,36 +461,32 @@ function openLoginModal(canClose = true) {
   const submitBtn = $("#btn-login-submit");
   const closeBtn = $("#login-modal-close");
 
+  // บังคับซ่อนปุ่มปิดหากยังไม่ได้ Login
   if (closeBtn) {
-    closeBtn.style.display = canClose ? "flex" : "none";
+    closeBtn.style.display = (canClose && currentBranch) ? "flex" : "none";
   }
 
-  if (currentBranch) {
-    if (codeInput) codeInput.value = currentBranch.code;
-    if (select) select.value = currentBranch.code;
-    updateLoginDetection(currentBranch.code);
-  } else {
-    if (codeInput) {
-      codeInput.value = "";
-      codeInput.classList.remove("input-valid", "input-invalid");
-    }
-    if (select) select.value = "";
-    if (preview) {
-      preview.style.display = "none";
-      preview.classList.remove("valid", "invalid");
-    }
-    const statusIcon = $("#login-status-icon");
-    const statusHint = $("#login-status-hint");
-    if (statusIcon) statusIcon.innerHTML = "";
-    if (statusHint) {
-      statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
-      statusHint.style.color = "var(--text-tertiary)";
-    }
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.className = "login-submit-btn btn-disabled";
-      submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
-    }
+  // เคลียร์ค่าฟอร์มเสมอ
+  if (codeInput) {
+    codeInput.value = "";
+    codeInput.classList.remove("input-valid", "input-invalid");
+  }
+  if (select) select.value = "";
+  if (preview) {
+    preview.style.display = "none";
+    preview.classList.remove("valid", "invalid");
+  }
+  const statusIcon = $("#login-status-icon");
+  const statusHint = $("#login-status-hint");
+  if (statusIcon) statusIcon.innerHTML = "";
+  if (statusHint) {
+    statusHint.textContent = "พิมพ์ 5 หลัก เช่น 20412";
+    statusHint.style.color = "var(--text-tertiary)";
+  }
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "login-submit-btn btn-disabled";
+    submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
   }
 
   openModal("login-modal");
@@ -626,13 +617,13 @@ function initBranchAuth() {
   const badge = $("#branch-user-badge");
   const modal = $("#login-modal");
 
-  loadActiveBranch();
+  // ล้างสถานะเดิมเสมอ เพื่อบังคับให้ Login ใหม่ทุกครั้งที่เปิดเข้าใช้งาน
+  clearActiveBranch();
 
-  if (!currentBranch) {
-    setTimeout(() => {
-      openLoginModal(false);
-    }, 400);
-  }
+  // บังคับแสดงหน้าต่าง Login ทันที และไม่อนุญาตให้ปิดจนกว่าจะใส่รหัสสาขาถูกต้อง
+  setTimeout(() => {
+    openLoginModal(false);
+  }, 100);
 
   if (codeInput) {
     codeInput.addEventListener("input", (e) => {
@@ -681,25 +672,43 @@ function initBranchAuth() {
 
   if (modal) {
     modal.addEventListener("click", (e) => {
-      if (e.target === modal && currentBranch) {
-        closeLoginModal();
+      if (e.target === modal) {
+        if (currentBranch) {
+          closeLoginModal();
+        } else {
+          // หากยังไม่ Login ห้ามคลิกนอกหน้าต่างเพื่อปิด ให้สั่นเตือน
+          triggerLoginShake();
+        }
       }
     });
   }
+
+  // ป้องกันการกด Esc หลุดจากหน้าต่าง Login หากยังไม่ได้ล็อกอิน
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const loginModal = $("#login-modal");
+      if (loginModal && loginModal.classList.contains("open") && !currentBranch) {
+        e.preventDefault();
+        triggerLoginShake();
+      }
+    }
+  });
 
   if (badge) {
     badge.addEventListener("click", () => {
       if (currentBranch) {
         showConfirm(
-          "สลับสาขา / ออกจากระบบ",
-          `คุณกำลังใช้งานในชื่อ <strong>"${currentBranch.name}" (รหัส ${currentBranch.code})</strong><br>ต้องการสลับไปยังสาขาอื่นหรือไม่?`,
-          "🏢",
+          "ออกจากระบบ / สลับสาขา",
+          `ปัจจุบันกำลังเข้าใช้งานในชื่อ <strong>"${currentBranch.name}" (รหัส ${currentBranch.code})</strong><br>ต้องการออกจากระบบหรือไม่?`,
+          "🚪",
           () => {
-            openLoginModal(true);
+            clearActiveBranch();
+            openLoginModal(false);
+            showToast("🔒 ออกจากระบบแล้ว กรุณาระบุรหัสสาขาเพื่อเข้าใช้งานใหม่", "info");
           }
         );
       } else {
-        openLoginModal(true);
+        openLoginModal(false);
       }
     });
   }
