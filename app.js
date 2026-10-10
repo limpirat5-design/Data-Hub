@@ -395,10 +395,245 @@ function showToast(message, type = "success") {
   }, 3000);
 }
 
+// =============================================
+// Branch Authentication System (ระบบเข้าสู่ระบบด้วยรหัสสาขา OC)
+// =============================================
+let currentBranch = null;
+
+function loadActiveBranch() {
+  try {
+    const saved = localStorage.getItem("branch_hub_active_branch");
+    if (saved) {
+      currentBranch = JSON.parse(saved);
+      updateBranchBadgeUI(currentBranch);
+      return currentBranch;
+    }
+  } catch (e) {
+    console.warn("Could not load branch auth:", e);
+  }
+  return null;
+}
+
+function setActiveBranch(branch) {
+  currentBranch = branch;
+  try {
+    localStorage.setItem("branch_hub_active_branch", JSON.stringify(branch));
+  } catch (e) {}
+  updateBranchBadgeUI(branch);
+}
+
+function clearActiveBranch() {
+  currentBranch = null;
+  try {
+    localStorage.removeItem("branch_hub_active_branch");
+  } catch (e) {}
+  updateBranchBadgeUI(null);
+}
+
+function updateBranchBadgeUI(branch) {
+  const badge = $("#branch-user-badge");
+  const nameEl = $("#display-branch-name");
+  const codeEl = $("#display-branch-code");
+  if (!nameEl) return;
+
+  if (branch && branch.name) {
+    nameEl.textContent = branch.name;
+    if (codeEl) codeEl.textContent = `รหัส ${branch.code}`;
+    if (badge) badge.classList.add("logged-in");
+  } else {
+    nameEl.textContent = "เข้าสู่ระบบสาขา";
+    if (codeEl) codeEl.textContent = "คลิกเพื่อระบุรหัส";
+    if (badge) badge.classList.remove("logged-in");
+  }
+}
+
+function populateLoginBranchSelect() {
+  const select = $("#login-branch-select");
+  if (!select || typeof BRANCHES === "undefined") return;
+  select.innerHTML = '<option value="">— เลือกสาขาจากรายชื่อ —</option>' +
+    BRANCHES.map(b => `<option value="${b.code}">${b.name} (${b.code})</option>`).join("");
+}
+
+function openLoginModal(canClose = true) {
+  const modal = $("#login-modal");
+  if (!modal) return;
+
+  populateLoginBranchSelect();
+
+  const codeInput = $("#login-branch-code");
+  const select = $("#login-branch-select");
+  const preview = $("#login-branch-preview");
+  const submitBtn = $("#btn-login-submit");
+  const closeBtn = $("#login-modal-close");
+
+  if (closeBtn) {
+    closeBtn.style.display = canClose ? "flex" : "none";
+  }
+
+  if (currentBranch) {
+    if (codeInput) codeInput.value = currentBranch.code;
+    if (select) select.value = currentBranch.code;
+    updateLoginDetection(currentBranch.code);
+  } else {
+    if (codeInput) codeInput.value = "";
+    if (select) select.value = "";
+    if (preview) preview.style.display = "none";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+    }
+  }
+
+  openModal("login-modal");
+
+  setTimeout(() => {
+    if (codeInput) codeInput.focus();
+  }, 120);
+}
+
+function closeLoginModal() {
+  closeModal("login-modal");
+}
+
+let detectedBranchTemp = null;
+
+function updateLoginDetection(code) {
+  const preview = $("#login-branch-preview");
+  const previewName = $("#login-preview-name");
+  const previewCode = $("#login-preview-code");
+  const submitBtn = $("#btn-login-submit");
+  const select = $("#login-branch-select");
+
+  const clean = (code || "").trim();
+  if (!clean) {
+    detectedBranchTemp = null;
+    if (preview) preview.style.display = "none";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+    }
+    return;
+  }
+
+  const matched = typeof findBranchByCode === "function" ? findBranchByCode(clean) : null;
+
+  if (matched) {
+    detectedBranchTemp = matched;
+    if (previewName) previewName.textContent = matched.name;
+    if (previewCode) previewCode.textContent = `รหัส OC: ${matched.code}`;
+    if (preview) preview.style.display = "block";
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${matched.name})`;
+    }
+    if (select && select.value !== matched.code) {
+      select.value = matched.code;
+    }
+  } else if (clean.length >= 3) {
+    detectedBranchTemp = { code: clean, name: `สาขารหัส ${clean}` };
+    if (previewName) previewName.textContent = detectedBranchTemp.name;
+    if (previewCode) previewCode.textContent = `รหัส OC: ${clean}`;
+    if (preview) preview.style.display = "block";
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${clean})`;
+    }
+  } else {
+    detectedBranchTemp = null;
+    if (preview) preview.style.display = "none";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "🚀 เข้าสู่ระบบ";
+    }
+  }
+}
+
+function initBranchAuth() {
+  const codeInput = $("#login-branch-code");
+  const select = $("#login-branch-select");
+  const submitBtn = $("#btn-login-submit");
+  const closeBtn = $("#login-modal-close");
+  const badge = $("#branch-user-badge");
+  const modal = $("#login-modal");
+
+  loadActiveBranch();
+
+  if (!currentBranch) {
+    setTimeout(() => {
+      openLoginModal(false);
+    }, 400);
+  }
+
+  if (codeInput) {
+    codeInput.addEventListener("input", (e) => {
+      updateLoginDetection(e.target.value);
+    });
+
+    codeInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && detectedBranchTemp) {
+        e.preventDefault();
+        submitLogin();
+      }
+    });
+  }
+
+  if (select) {
+    select.addEventListener("change", (e) => {
+      if (e.target.value) {
+        if (codeInput) codeInput.value = e.target.value;
+        updateLoginDetection(e.target.value);
+      }
+    });
+  }
+
+  function submitLogin() {
+    if (!detectedBranchTemp) return;
+    setActiveBranch(detectedBranchTemp);
+    closeLoginModal();
+    showToast(`🏢 เข้าสู่ระบบสำเร็จ: <strong>${detectedBranchTemp.name}</strong> (${detectedBranchTemp.code})`, "success");
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener("click", submitLogin);
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      if (currentBranch) closeLoginModal();
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal && currentBranch) {
+        closeLoginModal();
+      }
+    });
+  }
+
+  if (badge) {
+    badge.addEventListener("click", () => {
+      if (currentBranch) {
+        showConfirm(
+          "สลับสาขา / ออกจากระบบ",
+          `คุณกำลังใช้งานในชื่อ <strong>"${currentBranch.name}" (รหัส ${currentBranch.code})</strong><br>ต้องการสลับไปยังสาขาอื่นหรือไม่?`,
+          "🏢",
+          () => {
+            openLoginModal(true);
+          }
+        );
+      } else {
+        openLoginModal(true);
+      }
+    });
+  }
+}
+
 // ========================
 // Init
 // ========================
 document.addEventListener("DOMContentLoaded", async () => {
+  initBranchAuth();
   loadStoredDocuments();
   renderCategories();
   renderSubFilters();
@@ -652,7 +887,7 @@ function initUploadModal() {
         download_url: fileUrl,
         changelog_summary: changelog,
         download_count: 0,
-        last_updated_by: "เจ้าหน้าที่สาขา"
+        last_updated_by: currentBranch ? `${currentBranch.name} (${currentBranch.code})` : "สาขา"
       };
 
       // 3. บันทึกข้อมูลลง Cloud Database ถ้ามี
@@ -1191,6 +1426,9 @@ function initEditModal() {
         currentEditDoc.status = $("#edit-status").value;
         currentEditDoc.effective_date = $("#edit-date").value || new Date().toISOString().slice(0, 10);
         currentEditDoc.changelog_summary = $("#edit-changelog").value.trim() || `อัปเดตเวอร์ชัน ${version}`;
+        if (currentBranch) {
+          currentEditDoc.last_updated_by = `${currentBranch.name} (${currentBranch.code})`;
+        }
 
         // If user provided a new file
         if (selectedEditFile) {

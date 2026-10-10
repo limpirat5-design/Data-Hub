@@ -250,6 +250,95 @@ input, select, textarea { font: inherit; }
   color: var(--text-primary);
 }
 
+/* ---- Branch User Badge in Nav ---- */
+.branch-user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-mid);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.branch-user-badge:hover {
+  border-color: var(--color-new-loans);
+  background: var(--color-new-loans-bg);
+  transform: translateY(-1px);
+}
+
+.branch-user-badge.logged-in {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.branch-user-badge.logged-in:hover {
+  border-color: var(--color-income-kyc);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.branch-badge-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.branch-badge-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.branch-badge-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.branch-badge-code {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Login Modal & Detection Preview */
+.login-modal-container {
+  max-width: 440px;
+}
+
+.login-branch-preview {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.login-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 4px;
+}
+
+.login-preview-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.login-preview-code {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
 /* ---- Section Headings ---- */
 .section-heading {
   display: flex;
@@ -892,6 +981,19 @@ input, select, textarea { font: inherit; }
   .nav-btn {
     width: 36px;
     height: 36px;
+  }
+  .branch-user-badge {
+    padding: 4px 9px;
+    gap: 5px;
+  }
+  .branch-badge-name {
+    font-size: 11.5px;
+    max-width: 82px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .branch-badge-code {
+    display: none;
   }
   .nav-divider {
     display: none;
