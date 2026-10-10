@@ -63,13 +63,15 @@ async function uploadFileToCloudStorage(docId, file) {
 
   try {
     const bucket = APP_CONFIG.SUPABASE_STORAGE_BUCKET || "documents";
-    // สร้าง path ปลอดภัย เช่น DOC-001/filename.pdf
-    const safeFileName = encodeURIComponent(file.name);
-    const filePath = `${docId}/${Date.now()}_${safeFileName}`;
+    // สร้าง path ปลอดภัยแบบ ASCII สากลเพื่อรองรับ Supabase S3 (ป้องกัน Error InvalidKey จากภาษาไทย)
+    const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop().toLowerCase() : "pdf";
+    const cleanDocId = (docId || "DOC").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = `${cleanDocId}/${Date.now()}_file.${ext}`;
 
     const { data, error } = await client.storage
       .from(bucket)
       .upload(filePath, file, {
+        contentType: file.type || (ext === "pdf" ? "application/pdf" : "application/octet-stream"),
         cacheControl: "3600",
         upsert: true
       });

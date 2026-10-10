@@ -3051,6 +3051,18 @@ async function openDocumentPreview(doc, autoPrint = false) {
       } else {
         previewType = "pdf";
       }
+
+      // แปลง Cloud URL เป็น Blob URL เพื่อให้ iframe สั่งพิมพ์ได้โดยไม่มีข้อจำกัด Cross-Origin
+      try {
+        const res = await fetch(fileUrl);
+        if (res.ok) {
+          const blob = await res.blob();
+          fileUrl = URL.createObjectURL(blob);
+          currentPreviewBlobUrl = fileUrl;
+        }
+      } catch (e) {
+        console.warn("Could not convert cloud URL to blob URL, using direct URL", e);
+      }
     } else {
       const record = await getFileFromDB(doc.doc_id);
       if (record && record.data) {
@@ -3073,73 +3085,93 @@ async function openDocumentPreview(doc, autoPrint = false) {
         `;
       } else if (previewType === "pdf" && fileUrl) {
         bodyEl.innerHTML = `
-          <iframe src="${fileUrl}#toolbar=0" class="preview-frame" title="${escapeHtml(doc.title)}"></iframe>
+          <iframe src="${fileUrl}#toolbar=0" class="preview-frame" title="${escapeHtml(doc.title)}" style="width:100%;height:100%;min-height:600px;border:none;"></iframe>
         `;
       } else {
         const nowStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const checkListHtml = getStandardChecklistHtml(doc);
         bodyEl.innerHTML = `
-          <div class="preview-printable-sheet" id="printable-sheet-area">
-            <div class="form-sheet-header">
-              <div class="form-sheet-logo">
-                DATA<span>HUB</span> • เอกสารมาตรฐานสาขา
-                <div style="font-size:11.5px;font-weight:normal;color:#64748b;margin-top:2px;">
-                  แบบฟอร์มปฏิบัติงานสำหรับเจ้าหน้าที่และลูกค้า
-                </div>
-              </div>
-              <div class="form-sheet-meta">
-                <div><strong>รหัสเอกสาร:</strong> DOC-${escapeHtml(doc.doc_id)}</div>
-                <div><strong>เวอร์ชัน:</strong> ${escapeHtml(doc.version)} (${getStatusLabel(doc.status)})</div>
-                <div><strong>วันที่มีผล:</strong> ${formatDate(doc.effective_date)}</div>
-              </div>
-            </div>
-
-            <div class="form-sheet-title-box">
-              <h1 class="form-sheet-title">${escapeHtml(doc.title)}</h1>
-              <div class="form-sheet-subtitle">
-                หมวดหมู่: ${escapeHtml(catName)} • กลุ่มเป้าหมาย: ${escapeHtml(subNames)}
-              </div>
-            </div>
-
-            <div class="form-sheet-section">
-              <div class="form-sheet-section-title">วัตถุประสงค์และรายละเอียดการใช้เอกสาร</div>
-              <div class="form-sheet-grid">
-                <div>
-                  <strong style="color:#0f172a;">คำอธิบาย/การเปลี่ยนแปลง:</strong><br>
-                  <span style="color:#475569;">${escapeHtml(doc.changelog_summary || 'แบบฟอร์มมาตรฐานสำหรับการให้บริการ')}</span>
-                </div>
-                <div>
-                  <strong style="color:#0f172a;">การนำไปใช้:</strong><br>
-                  <span style="color:#475569;">ใช้เป็นเอกสารประกอบสัญญา/คำขอสินเชื่อประจำสาขาตามระเบียบปฏิบัติงาน</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-sheet-section">
-              <div class="form-sheet-section-title">รายการตรวจสอบความถูกต้องก่อนดำเนินการ (Checklist)</div>
-              <div class="form-sheet-check-list">
-                ${checkListHtml}
-              </div>
-            </div>
-
-            <div class="form-sheet-signature-area">
+          <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:700px;margin:0 auto;">
+            <div style="background:#fffbeb;border:1px solid #fde68a;padding:12px 16px;border-radius:8px;font-size:12.5px;color:#92400e;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div>
-                <div class="form-sig-line"></div>
-                <div class="form-sig-label">ลงชื่อ................................................... ผู้จัดทำ/ผู้ยื่นเอกสาร</div>
-                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
+                <strong>⚠️ ยังไม่ได้แนบไฟล์ต้นฉบับจริง (PDF / รูปภาพ) ขึ้น Cloud Storage</strong><br>
+                ระบบจึงแสดงแบบฟอร์มมาตรฐานสาขาแทน คุณสามารถอัปโหลดไฟล์จริงเพื่อแทนที่ได้ทันที
               </div>
-              <div>
-                <div class="form-sig-line"></div>
-                <div class="form-sig-label">ลงชื่อ................................................... ผู้ตรวจสอบ/ผู้อนุมัติสาขา</div>
-                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
-              </div>
+              <button type="button" class="modal-btn-primary" id="btn-quick-attach-file" style="padding:6px 14px;font-size:12.5px;white-space:nowrap;">
+                📁 อัปโหลดไฟล์จริง
+              </button>
             </div>
 
-            <div class="form-sheet-footer">
-              เอกสารนี้ออกโดยระบบ Data Hub สาขา • พิมพ์เมื่อ: ${nowStr} น.
+            <div class="preview-printable-sheet" id="printable-sheet-area">
+              <div class="form-sheet-header">
+                <div class="form-sheet-logo">
+                  DATA<span>HUB</span> • เอกสารมาตรฐานสาขา
+                  <div style="font-size:11.5px;font-weight:normal;color:#64748b;margin-top:2px;">
+                    แบบฟอร์มปฏิบัติงานสำหรับเจ้าหน้าที่และลูกค้า
+                  </div>
+                </div>
+                <div class="form-sheet-meta">
+                  <div><strong>รหัสเอกสาร:</strong> DOC-${escapeHtml(doc.doc_id)}</div>
+                  <div><strong>เวอร์ชัน:</strong> ${escapeHtml(doc.version)} (${getStatusLabel(doc.status)})</div>
+                  <div><strong>วันที่มีผล:</strong> ${formatDate(doc.effective_date)}</div>
+                </div>
+              </div>
+
+              <div class="form-sheet-title-box">
+                <h1 class="form-sheet-title">${escapeHtml(doc.title)}</h1>
+                <div class="form-sheet-subtitle">
+                  หมวดหมู่: ${escapeHtml(catName)} • กลุ่มเป้าหมาย: ${escapeHtml(subNames)}
+                </div>
+              </div>
+
+              <div class="form-sheet-section">
+                <div class="form-sheet-section-title">วัตถุประสงค์และรายละเอียดการใช้เอกสาร</div>
+                <div class="form-sheet-grid">
+                  <div>
+                    <strong style="color:#0f172a;">คำอธิบาย/การเปลี่ยนแปลง:</strong><br>
+                    <span style="color:#475569;">${escapeHtml(doc.changelog_summary || 'แบบฟอร์มมาตรฐานสำหรับการให้บริการ')}</span>
+                  </div>
+                  <div>
+                    <strong style="color:#0f172a;">การนำไปใช้:</strong><br>
+                    <span style="color:#475569;">ใช้เป็นเอกสารประกอบสัญญา/คำขอสินเชื่อประจำสาขาตามระเบียบปฏิบัติงาน</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-sheet-section">
+                <div class="form-sheet-section-title">รายการตรวจสอบความถูกต้องก่อนดำเนินการ (Checklist)</div>
+                <div class="form-sheet-check-list">
+                  ${checkListHtml}
+                </div>
+              </div>
+
+              <div class="form-sheet-signature-area">
+                <div>
+                  <div class="form-sig-line"></div>
+                  <div class="form-sig-label">ลงชื่อ................................................... ผู้จัดทำ/ผู้ยื่นเอกสาร</div>
+                  <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
+                </div>
+                <div>
+                  <div class="form-sig-line"></div>
+                  <div class="form-sig-label">ลงชื่อ................................................... ผู้ตรวจสอบ/ผู้อนุมัติสาขา</div>
+                  <div style="font-size:11px;color:#94a3b8;margin-top:3px;">( วันที่ ...... / ...... / .......... )</div>
+                </div>
+              </div>
+
+              <div class="form-sheet-footer">
+                เอกสารนี้ออกโดยระบบ Data Hub สาขา • พิมพ์เมื่อ: ${nowStr} น.
+              </div>
             </div>
           </div>
         `;
+
+        const quickAttachBtn = $("#btn-quick-attach-file");
+        if (quickAttachBtn) {
+          quickAttachBtn.addEventListener("click", () => {
+            closeDocumentPreview();
+            openEditModal(doc.doc_id);
+          });
+        }
       }
     }
 
