@@ -30,6 +30,8 @@ const ICONS = {
   "folder-open": `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>`,
   bell: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   upload: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+  edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
 };
 
 function icon(name) {
@@ -266,12 +268,26 @@ function renderDocuments() {
           <span class="doc-meta-item">${icon("calendar")} ${formatDate(doc.effective_date)}</span>
           <span class="doc-meta-item">${icon("bar-chart")} ${formatNumber(doc.download_count)}</span>
         </div>
-        <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
-          ${icon("download")} ดาวน์โหลด
-        </button>
+        <div class="doc-actions">
+          <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
+            ${icon("edit")} แก้ไข
+          </button>
+          <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
+            ${icon("download")} ดาวน์โหลด
+          </button>
+        </div>
       </div>
     </div>`;
   }).join("");
+
+  // Edit button handler
+  container.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      openEditModal(docId);
+    });
+  });
 
   // Download button handler
   container.querySelectorAll(".doc-download-btn").forEach(btn => {
@@ -391,6 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initSearch();
   initScrollShadow();
   initUploadModal();
+  initEditModal();
   initDataBackup();
   initAIChat();
 
@@ -1009,6 +1026,249 @@ function closeModal(id) {
 }
 
 // ========================
+// Edit / Update Modal System
+// ========================
+let currentEditDoc = null;
+let selectedEditFile = null;
+
+function populateEditCategories() {
+  const catSelect = $("#edit-category");
+  if (!catSelect) return;
+  catSelect.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+}
+
+function updateEditSubcategories(catId, selectedSub = null) {
+  const subSelect = $("#edit-subcategory");
+  if (!subSelect) return;
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) {
+    subSelect.innerHTML = '<option value="">— ไม่มีหมวดย่อย —</option>';
+    return;
+  }
+  subSelect.innerHTML = cat.subcategories.map(sub =>
+    `<option value="${sub}" ${sub === selectedSub ? 'selected' : ''}>${sub}</option>`
+  ).join("");
+}
+
+function openEditModal(docId) {
+  const doc = DOCUMENTS.find(d => d.doc_id === docId);
+  if (!doc) {
+    showToast("ไม่พบเอกสารที่ต้องการแก้ไข", "error");
+    return;
+  }
+
+  currentEditDoc = doc;
+  selectedEditFile = null;
+
+  $("#edit-doc-id").value = doc.doc_id;
+  $("#edit-modal-title").textContent = `แก้ไข / อัปเดตเอกสาร [${doc.doc_id}]`;
+
+  populateEditCategories();
+  $("#edit-category").value = doc.category_id || (CATEGORIES[0] && CATEGORIES[0].id);
+  updateEditSubcategories($("#edit-category").value, doc.subcategory);
+
+  $("#edit-title").value = doc.title || "";
+  $("#edit-version").value = doc.version || "v1.0";
+  $("#edit-status").value = doc.status || "active";
+  $("#edit-date").value = doc.effective_date || new Date().toISOString().slice(0, 10);
+  $("#edit-changelog").value = doc.changelog_summary || "";
+
+  $("#edit-current-filename").textContent = doc.file_name || `${doc.title}.pdf`;
+  $("#edit-new-filename-display").textContent = "ยังไม่ได้เลือกไฟล์ใหม่";
+  $("#edit-file-input").value = "";
+
+  openModal("edit-doc-modal");
+}
+
+function closeEditModal() {
+  closeModal("edit-doc-modal");
+  currentEditDoc = null;
+  selectedEditFile = null;
+}
+
+function initEditModal() {
+  const modal = $("#edit-doc-modal");
+  if (!modal) return;
+
+  const closeBtn = $("#edit-modal-close");
+  const cancelBtn = $("#edit-cancel-btn");
+  const saveBtn = $("#edit-save-btn");
+  const deleteBtn = $("#edit-delete-btn");
+  const catSelect = $("#edit-category");
+  const fileInput = $("#edit-file-input");
+  const pickFileBtn = $("#btn-edit-pick-file");
+  const aiSummBtn = $("#btn-edit-ai-summarize");
+
+  // Close handlers
+  if (closeBtn) closeBtn.addEventListener("click", closeEditModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", closeEditModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeEditModal();
+  });
+
+  // Category change cascade
+  if (catSelect) {
+    catSelect.addEventListener("change", (e) => {
+      updateEditSubcategories(e.target.value);
+    });
+  }
+
+  // File picker for replacement/new version
+  if (pickFileBtn && fileInput) {
+    pickFileBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        selectedEditFile = file;
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        $("#edit-new-filename-display").innerHTML = `<strong style="color:var(--color-income-kyc)">✓ ${file.name}</strong> (${sizeMb} MB)`;
+      } else {
+        selectedEditFile = null;
+        $("#edit-new-filename-display").textContent = "ยังไม่ได้เลือกไฟล์ใหม่";
+      }
+    });
+  }
+
+  // AI Summarize changelog
+  if (aiSummBtn) {
+    aiSummBtn.addEventListener("click", async () => {
+      if (!currentEditDoc) return;
+      const title = $("#edit-title").value.trim() || currentEditDoc.title;
+      const ver = $("#edit-version").value.trim() || currentEditDoc.version;
+      const oldVer = currentEditDoc.version;
+
+      if (typeof isGeminiConfigured === "function" && isGeminiConfigured()) {
+        aiSummBtn.textContent = "⏳ กำลังสรุป...";
+        aiSummBtn.disabled = true;
+        try {
+          const prompt = `ช่วยเขียนข้อความสรุปการเปลี่ยนแปลงสั้นๆ (ภาษาไทย 1 ประโยค ไม่เกิน 15 คำ) สำหรับเอกสารชื่อ "${title}" ที่ปรับปรุงจากเวอร์ชัน ${oldVer} เป็น ${ver} เช่น ปรับปรุงเงื่อนไขหรืออัตราดอกเบี้ยใหม่`;
+          const res = await callGemini(prompt);
+          if (res && res.success && res.text) {
+            $("#edit-changelog").value = res.text.replace(/[\*\"\'\n]/g, "").trim();
+            showToast("✨ AI สร้างข้อความสรุปการเปลี่ยนแปลงเรียบร้อย", "success");
+          } else {
+            $("#edit-changelog").value = `อัปเดตข้อมูลเป็นเวอร์ชัน ${ver} มีผลบังคับใช้ตามประกาศ`;
+          }
+        } catch (err) {
+          $("#edit-changelog").value = `อัปเดตข้อมูลเป็นเวอร์ชัน ${ver} มีผลบังคับใช้ตามประกาศ`;
+        } finally {
+          aiSummBtn.textContent = "✨ AI สรุป";
+          aiSummBtn.disabled = false;
+        }
+      } else {
+        $("#edit-changelog").value = `ปรับปรุงเนื้อหาเป็นเวอร์ชัน ${ver} ให้เป็นปัจจุบัน`;
+        showToast("ใส่ข้อความสรุปเวอร์ชันเบื้องต้นให้แล้ว (เปิดใช้ Gemini AI เพื่อให้ระบบสรุปอัตโนมัติ)", "info");
+      }
+    });
+  }
+
+  // Save changes
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      if (!currentEditDoc) return;
+      const title = $("#edit-title").value.trim();
+      const version = $("#edit-version").value.trim();
+
+      if (!title) {
+        showToast("กรุณาระบุชื่อเอกสาร", "warning");
+        $("#edit-title").focus();
+        return;
+      }
+      if (!version) {
+        showToast("กรุณาระบุเวอร์ชันเอกสาร", "warning");
+        $("#edit-version").focus();
+        return;
+      }
+
+      saveBtn.classList.add("btn-loading");
+      saveBtn.disabled = true;
+
+      try {
+        currentEditDoc.category_id = $("#edit-category").value;
+        currentEditDoc.subcategory = $("#edit-subcategory").value;
+        currentEditDoc.title = title;
+        currentEditDoc.version = version;
+        currentEditDoc.status = $("#edit-status").value;
+        currentEditDoc.effective_date = $("#edit-date").value || new Date().toISOString().slice(0, 10);
+        currentEditDoc.changelog_summary = $("#edit-changelog").value.trim() || `อัปเดตเวอร์ชัน ${version}`;
+
+        // If user provided a new file
+        if (selectedEditFile) {
+          currentEditDoc.file_name = selectedEditFile.name;
+          await saveFileToDB(currentEditDoc.doc_id, selectedEditFile);
+
+          if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
+            showToast("☁️ กำลังอัปโหลดไฟล์เวอร์ชันใหม่ขึ้น Cloud Storage...", "info");
+            const uploadRes = await uploadFileToCloudStorage(currentEditDoc.doc_id, selectedEditFile);
+            if (uploadRes.success && uploadRes.publicUrl) {
+              currentEditDoc.download_url = uploadRes.publicUrl;
+            }
+          }
+        }
+
+        // Save locally
+        saveDocumentsToStorage();
+
+        // Save to Cloud
+        if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
+          const cloudRes = await saveDocumentToCloud(currentEditDoc);
+          if (!cloudRes.success) {
+            console.warn("Cloud save warning:", cloudRes.error);
+          }
+        }
+
+        // Refresh UI
+        renderCategories();
+        renderSubFilters();
+        renderQuickAccess();
+        renderDocuments();
+
+        closeModal("edit-doc-modal");
+        showToast(`✅ บันทึกการแก้ไข "${currentEditDoc.title}" เรียบร้อยแล้ว`, "success");
+      } catch (err) {
+        console.error("Save edit error:", err);
+        showToast("เกิดข้อผิดพลาดในการบันทึก: " + err.message, "error");
+      } finally {
+        saveBtn.classList.remove("btn-loading");
+        saveBtn.disabled = false;
+      }
+    });
+  }
+
+  // Delete document
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => {
+      if (!currentEditDoc) return;
+      const targetDoc = currentEditDoc;
+
+      showConfirm(
+        "ลบเอกสารออกจากระบบ",
+        `คุณต้องการลบเอกสาร <strong>"${targetDoc.title}"</strong> (${targetDoc.doc_id}) ออกจากระบบใช่หรือไม่?<br><span style="font-size:12px;color:var(--text-tertiary)">การดำเนินการนี้จะไม่สามารถกู้คืนได้</span>`,
+        "🗑️",
+        async () => {
+          const idx = DOCUMENTS.findIndex(d => d.doc_id === targetDoc.doc_id);
+          if (idx !== -1) {
+            DOCUMENTS.splice(idx, 1);
+          }
+          saveDocumentsToStorage();
+
+          if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
+            await deleteDocumentFromCloud(targetDoc.doc_id);
+          }
+
+          closeEditModal();
+          renderCategories();
+          renderSubFilters();
+          renderQuickAccess();
+          renderDocuments();
+          showToast(`🗑️ ลบเอกสาร "${targetDoc.title}" เรียบร้อยแล้ว`, "info");
+        }
+      );
+    });
+  }
+}
+
+// ========================
 // Confirmation Modal Utility
 // ========================
 let confirmCallback = null;
@@ -1415,12 +1675,26 @@ function renderAIDocuments(docs) {
           <span class="doc-meta-item">${icon("calendar")} ${formatDate(doc.effective_date)}</span>
           <span class="doc-meta-item">${icon("bar-chart")} ${formatNumber(doc.download_count)}</span>
         </div>
-        <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
-          ${icon("download")} ดาวน์โหลด
-        </button>
+        <div class="doc-actions">
+          <button class="doc-action-btn edit-btn" data-docid="${doc.doc_id}" title="แก้ไขหรืออัปเดตเวอร์ชัน">
+            ${icon("edit")} แก้ไข
+          </button>
+          <button class="doc-download-btn" data-docid="${doc.doc_id}" id="btn-dl-${doc.doc_id}">
+            ${icon("download")} ดาวน์โหลด
+          </button>
+        </div>
       </div>
     </div>`;
   }).join("");
+
+  // Edit button handler
+  container.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.docid;
+      openEditModal(docId);
+    });
+  });
 
   // Re-bind download buttons
   container.querySelectorAll(".doc-download-btn").forEach(btn => {

@@ -157,3 +157,27 @@ function listenToCloudRealtime(onUpdateCallback) {
     return null;
   }
 }
+
+/**
+ * ลบเอกสารออกจาก Cloud Database
+ */
+async function deleteDocumentFromCloud(docId) {
+  const client = getCloudClient();
+  if (!client) return { success: false };
+
+  try {
+    const { error } = await client
+      .from("documents")
+      .delete()
+      .eq("doc_id", docId);
+
+    if (error) {
+      console.warn("Supabase delete error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
