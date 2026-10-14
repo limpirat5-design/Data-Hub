@@ -322,10 +322,11 @@ function renderSubFilters() {
   const subBtns = subList.map(sub =>
     `<button class="sub-filter-btn ${state.activeSubcategory === sub ? 'active' : ''}" data-sub="${sub}">${sub}</button>`
   ).join("");
+  const manageSubBtn = `<button class="sub-filter-btn sub-filter-add-btn" id="btn-quick-manage-subs" title="จัดการหมวดย่อยของหมวดนี้">⚙️ จัดการหมวดย่อย</button>`;
 
-  container.innerHTML = allBtn + subBtns;
+  container.innerHTML = allBtn + subBtns + manageSubBtn;
 
-  container.querySelectorAll(".sub-filter-btn").forEach(btn => {
+  container.querySelectorAll(".sub-filter-btn:not(#btn-quick-manage-subs)").forEach(btn => {
     btn.addEventListener("click", () => {
       const sub = btn.dataset.sub;
       state.activeSubcategory = sub === "__all" ? null : sub;
@@ -333,6 +334,23 @@ function renderSubFilters() {
       renderDocuments();
     });
   });
+
+  const quickManageBtn = $("#btn-quick-manage-subs");
+  if (quickManageBtn) {
+    quickManageBtn.addEventListener("click", () => {
+      closeCategoryForm();
+      renderCategoryManageList();
+      openModal("categories-modal");
+      setTimeout(() => {
+        const item = $(`#cat-manage-list .cat-manage-item[data-id="${cat.id}"]`);
+        if (item) {
+          item.scrollIntoView({ behavior: "smooth", block: "center" });
+          item.style.borderColor = "var(--primary)";
+          setTimeout(() => { item.style.borderColor = ""; }, 1600);
+        }
+      }, 200);
+    });
+  }
 }
 
 function renderQuickAccess() {
@@ -2132,6 +2150,202 @@ function refreshAllCategoryUI() {
   renderCategoryManageList();
 }
 
+function getSubcategoryDocCount(catId, subName) {
+  return DOCUMENTS.filter(doc => {
+    if (doc.category_id !== catId) return false;
+    const subs = getDocSubcategories(doc);
+    return subs.includes(subName);
+  }).length;
+}
+
+function addSubcategory(catId, subName) {
+  const cleanName = String(subName || "").trim();
+  if (!cleanName) {
+    showToast("กรุณาระบุชื่อหมวดย่อย", "warning");
+    return false;
+  }
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) {
+    showToast("ไม่พบหมวดหมู่ที่ระบุ", "error");
+    return false;
+  }
+  if (!Array.isArray(cat.subcategories)) {
+    cat.subcategories = [];
+  }
+  if (cat.subcategories.some(s => s.toLowerCase() === cleanName.toLowerCase())) {
+    showToast(`หมวดย่อย "${cleanName}" มีอยู่แล้วในหมวดหมู่นี้`, "warning");
+    return false;
+  }
+
+  cat.subcategories.push(cleanName);
+  saveCategoriesToStorage();
+  refreshAllCategoryUI();
+  showToast(`✅ เพิ่มหมวดย่อย "${cleanName}" เรียบร้อย`, "success");
+  return true;
+}
+
+function openEditSubcategoryModal(catId, oldName) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+
+  const modal = $("#subcat-edit-modal");
+  if (!modal) return;
+
+  const count = getSubcategoryDocCount(catId, oldName);
+  $("#subcat-edit-catid").value = catId;
+  $("#subcat-edit-oldname").value = oldName;
+  $("#subcat-edit-modal-sub").textContent = `หมวดหมู่: ${cat.name}`;
+  $("#subcat-edit-input").value = oldName;
+
+  const hint = $("#subcat-edit-hint");
+  if (hint) {
+    hint.innerHTML = count > 0
+      ? `💡 มีเอกสารที่ใช้หมวดย่อยนี้อยู่ <strong>${count} ฉบับ</strong> ระบบจะอัปเดตชื่อในเอกสารทั้งหมดให้โดยอัตโนมัติ`
+      : `💡 หมวดย่อยนี้ยังไม่มีเอกสารใช้งาน`;
+  }
+
+  openModal("subcat-edit-modal");
+  setTimeout(() => {
+    const input = $("#subcat-edit-input");
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }, 100);
+}
+
+function closeEditSubcategoryModal() {
+  closeModal("subcat-edit-modal");
+}
+
+function saveEditSubcategory() {
+  const catId = $("#subcat-edit-catid").value;
+  const oldName = $("#subcat-edit-oldname").value;
+  const newName = $("#subcat-edit-input").value.trim();
+
+  if (!newName) {
+    showToast("กรุณากรอกชื่อหมวดย่อย", "warning");
+    $("#subcat-edit-input").focus();
+    return;
+  }
+
+  if (oldName === newName) {
+    closeEditSubcategoryModal();
+    return;
+  }
+
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat || !Array.isArray(cat.subcategories)) {
+    showToast("ไม่พบหมวดหมู่", "error");
+    return;
+  }
+
+  if (cat.subcategories.some(s => s.toLowerCase() === newName.toLowerCase() && s.toLowerCase() !== oldName.toLowerCase())) {
+    showToast(`ชื่อหมวดย่อย "${newName}" มีอยู่แล้วในหมวดหมู่นี้`, "warning");
+    $("#subcat-edit-input").focus();
+    return;
+  }
+
+  // Update in category
+  const idx = cat.subcategories.findIndex(s => s === oldName);
+  if (idx !== -1) {
+    cat.subcategories[idx] = newName;
+  } else {
+    cat.subcategories.push(newName);
+  }
+
+  // Update in all DOCUMENTS using this subcategory under this category
+  let updatedDocCount = 0;
+  DOCUMENTS.forEach(doc => {
+    if (doc.category_id === catId) {
+      let changed = false;
+      if (Array.isArray(doc.subcategories)) {
+        const sIdx = doc.subcategories.indexOf(oldName);
+        if (sIdx !== -1) {
+          doc.subcategories[sIdx] = newName;
+          changed = true;
+        }
+      }
+      if (doc.subcategory && typeof doc.subcategory === "string") {
+        const parts = doc.subcategory.split(",").map(s => s.trim());
+        const pIdx = parts.indexOf(oldName);
+        if (pIdx !== -1) {
+          parts[pIdx] = newName;
+          doc.subcategory = parts.join(", ");
+          changed = true;
+        }
+      }
+      if (changed) updatedDocCount++;
+    }
+  });
+
+  if (state.activeSubcategory === oldName) {
+    state.activeSubcategory = newName;
+  }
+
+  saveCategoriesToStorage();
+  if (updatedDocCount > 0) {
+    saveDocumentsToStorage();
+  }
+  refreshAllCategoryUI();
+  closeEditSubcategoryModal();
+
+  const docMsg = updatedDocCount > 0 ? ` (อัปเดตเอกสารที่เกี่ยวข้อง ${updatedDocCount} ฉบับ)` : "";
+  showToast(`✅ เปลี่ยนชื่อหมวดย่อยเป็น "${newName}" เรียบร้อย${docMsg}`, "success");
+}
+
+function deleteSubcategory(catId, subName) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+
+  const docCount = getSubcategoryDocCount(catId, subName);
+  const confirmMsg = docCount > 0
+    ? `หมวดย่อย "${subName}" มีเอกสารใช้งานอยู่ ${docCount} ฉบับ หากลบหมวดย่อยนี้ เอกสารจะไม่ถูกลบแต่จะนำแท็กหมวดย่อยออก ต้องการลบใช่หรือไม่?`
+    : `คุณต้องการลบหมวดย่อย "${subName}" ออกจากหมวดหมู่ "${cat.name}" ใช่หรือไม่?`;
+
+  showConfirm(
+    "ยืนยันการลบหมวดย่อย",
+    confirmMsg,
+    "🗑️",
+    () => {
+      // Remove from category
+      if (Array.isArray(cat.subcategories)) {
+        cat.subcategories = cat.subcategories.filter(s => s !== subName);
+      }
+
+      // Remove tag from documents
+      let updatedDocCount = 0;
+      DOCUMENTS.forEach(doc => {
+        if (doc.category_id === catId) {
+          let changed = false;
+          if (Array.isArray(doc.subcategories)) {
+            const before = doc.subcategories.length;
+            doc.subcategories = doc.subcategories.filter(s => s !== subName);
+            if (doc.subcategories.length !== before) changed = true;
+          }
+          if (doc.subcategory && typeof doc.subcategory === "string") {
+            const parts = doc.subcategory.split(",").map(s => s.trim()).filter(s => s !== subName);
+            doc.subcategory = parts.join(", ");
+            changed = true;
+          }
+          if (changed) updatedDocCount++;
+        }
+      });
+
+      if (state.activeSubcategory === subName) {
+        state.activeSubcategory = null;
+      }
+
+      saveCategoriesToStorage();
+      if (updatedDocCount > 0) {
+        saveDocumentsToStorage();
+      }
+      refreshAllCategoryUI();
+      showToast(`🗑️ ลบหมวดย่อย "${subName}" เรียบร้อย`, "info");
+    }
+  );
+}
+
 function renderCategoryManageList() {
   const container = $("#cat-manage-list");
   if (!container) return;
@@ -2147,38 +2361,82 @@ function renderCategoryManageList() {
   container.innerHTML = CATEGORIES.map(cat => {
     const docCount = getCategoryCount(cat.id);
     const subList = Array.isArray(cat.subcategories) ? cat.subcategories : [];
-    const subsText = subList.length > 0
-      ? `หมวดย่อย: ${subList.join(', ')}`
-      : 'ไม่มีหมวดย่อย';
+
+    const subChipsHtml = subList.length > 0
+      ? subList.map(sub => {
+          const sCount = getSubcategoryDocCount(cat.id, sub);
+          return `
+            <div class="cat-sub-chip">
+              <span class="cat-sub-chip-name">${escapeHtml(sub)}</span>
+              <span class="cat-sub-chip-count" title="${sCount} เอกสาร">${sCount}</span>
+              <button type="button" class="cat-sub-chip-btn edit" data-catid="${cat.id}" data-sub="${escapeHtml(sub)}" title="แก้ไขชื่อหมวดย่อยนี้">
+                ✏️
+              </button>
+              <button type="button" class="cat-sub-chip-btn delete" data-catid="${cat.id}" data-sub="${escapeHtml(sub)}" title="ลบหมวดย่อยนี้">
+                ✕
+              </button>
+            </div>
+          `;
+        }).join("")
+      : '<span class="cat-sub-empty-msg">ยังไม่มีหมวดย่อยในหมวดหมู่นี้ กดปุ่ม "➕ เพิ่มหมวดย่อย" เพื่อสร้าง</span>';
 
     return `
       <div class="cat-manage-item" data-id="${cat.id}">
-        <div class="cat-manage-left">
-          <div class="cat-manage-icon" style="background:${cat.color ? cat.color + '18' : 'var(--bg-tertiary)'};color:${cat.color || 'var(--primary)'}">
-            ${icon(cat.icon)}
+        <!-- Header row -->
+        <div class="cat-manage-header">
+          <div class="cat-manage-left">
+            <div class="cat-manage-icon" style="background:${cat.color ? cat.color + '18' : 'var(--bg-tertiary)'};color:${cat.color || 'var(--primary)'}">
+              ${icon(cat.icon)}
+            </div>
+            <div class="cat-manage-info">
+              <div class="cat-manage-title">
+                ${escapeHtml(cat.name)} <span style="font-size:11.5px;font-weight:normal;color:var(--text-tertiary);margin-left:4px">(${docCount} เอกสาร)</span>
+              </div>
+              <div class="cat-manage-subs">
+                หมวดย่อยทั้งหมด ${subList.length} รายการ
+              </div>
+            </div>
           </div>
-          <div class="cat-manage-info">
-            <div class="cat-manage-title">
-              ${escapeHtml(cat.name)} <span style="font-size:11.5px;font-weight:normal;color:var(--text-tertiary);margin-left:4px">(${docCount} เอกสาร)</span>
-            </div>
-            <div class="cat-manage-subs">
-              ${escapeHtml(subsText)}
-            </div>
+          <div class="cat-manage-actions">
+            <button type="button" class="cat-action-btn edit" data-catid="${cat.id}" title="แก้ไขหมวดหมู่">
+              ✏️ แก้ไขหมวด
+            </button>
+            <button type="button" class="cat-action-btn delete" data-catid="${cat.id}" title="ลบหมวดหมู่">
+              🗑️ ลบ
+            </button>
           </div>
         </div>
-        <div class="cat-manage-actions">
-          <button type="button" class="cat-action-btn edit" data-catid="${cat.id}" title="แก้ไขหมวดหมู่">
-            ✏️ แก้ไข
-          </button>
-          <button type="button" class="cat-action-btn delete" data-catid="${cat.id}" title="ลบหมวดหมู่">
-            🗑️ ลบ
-          </button>
+
+        <!-- Subcategories section -->
+        <div class="cat-subs-section">
+          <div class="cat-subs-header">
+            <span class="cat-subs-title">
+              🏷️ หมวดย่อย (${subList.length})
+            </span>
+            <button type="button" class="cat-subs-add-btn" data-catid="${cat.id}">
+              ➕ เพิ่มหมวดย่อย
+            </button>
+          </div>
+
+          <!-- Inline Add Box -->
+          <div class="cat-sub-add-box" id="cat-sub-add-box-${cat.id}" style="display:none;">
+            <input type="text" class="cat-sub-add-input" id="cat-sub-add-input-${cat.id}" placeholder="พิมพ์ชื่อหมวดย่อยใหม่ เช่น รถเพื่อการเกษตร...">
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="cat-sub-btn-save" data-catid="${cat.id}">➕ เพิ่ม</button>
+              <button type="button" class="cat-sub-btn-cancel" data-catid="${cat.id}">ยกเลิก</button>
+            </div>
+          </div>
+
+          <!-- Chips List -->
+          <div class="cat-subs-chips">
+            ${subChipsHtml}
+          </div>
         </div>
       </div>
     `;
   }).join("");
 
-  // Attach event listeners for edit / delete
+  // Attach event listeners for category edit / delete
   container.querySelectorAll(".cat-action-btn.edit").forEach(btn => {
     btn.addEventListener("click", () => {
       openEditCategoryForm(btn.dataset.catid);
@@ -2188,6 +2446,82 @@ function renderCategoryManageList() {
   container.querySelectorAll(".cat-action-btn.delete").forEach(btn => {
     btn.addEventListener("click", () => {
       deleteCategory(btn.dataset.catid);
+    });
+  });
+
+  // Attach event listeners for subcategory add box toggle
+  container.querySelectorAll(".cat-subs-add-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const catId = btn.dataset.catid;
+      const box = $(`#cat-sub-add-box-${catId}`);
+      if (box) {
+        const isShown = box.style.display !== "none";
+        box.style.display = isShown ? "none" : "flex";
+        if (!isShown) {
+          const input = $(`#cat-sub-add-input-${catId}`);
+          if (input) {
+            input.value = "";
+            input.focus();
+          }
+        }
+      }
+    });
+  });
+
+  // Cancel add box
+  container.querySelectorAll(".cat-sub-btn-cancel").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const catId = btn.dataset.catid;
+      const box = $(`#cat-sub-add-box-${catId}`);
+      if (box) box.style.display = "none";
+    });
+  });
+
+  // Save add box
+  container.querySelectorAll(".cat-sub-btn-save").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const catId = btn.dataset.catid;
+      const input = $(`#cat-sub-add-input-${catId}`);
+      if (input && addSubcategory(catId, input.value)) {
+        input.value = "";
+        const box = $(`#cat-sub-add-box-${catId}`);
+        if (box) box.style.display = "none";
+      }
+    });
+  });
+
+  // Enter key on add input
+  container.querySelectorAll(".cat-sub-add-input").forEach(input => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const catId = input.id.replace("cat-sub-add-input-", "");
+        if (addSubcategory(catId, input.value)) {
+          input.value = "";
+          const box = $(`#cat-sub-add-box-${catId}`);
+          if (box) box.style.display = "none";
+        }
+      } else if (e.key === "Escape") {
+        const catId = input.id.replace("cat-sub-add-input-", "");
+        const box = $(`#cat-sub-add-box-${catId}`);
+        if (box) box.style.display = "none";
+      }
+    });
+  });
+
+  // Edit subcategory chip button
+  container.querySelectorAll(".cat-sub-chip-btn.edit").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditSubcategoryModal(btn.dataset.catid, btn.dataset.sub);
+    });
+  });
+
+  // Delete subcategory chip button
+  container.querySelectorAll(".cat-sub-chip-btn.delete").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteSubcategory(btn.dataset.catid, btn.dataset.sub);
     });
   });
 }
@@ -2383,9 +2717,45 @@ function initCategoryManagement() {
     restoreDefaultsBtn.addEventListener("click", () => restoreDefaultCategories());
   }
 
+  // Subcategory Edit Modal Controls
+  const subcatModal = $("#subcat-edit-modal");
+  const subcatCloseBtn = $("#subcat-edit-close");
+  const subcatCancelBtn = $("#subcat-edit-cancel");
+  const subcatSaveBtn = $("#subcat-edit-save");
+  const subcatInput = $("#subcat-edit-input");
+
+  if (subcatCloseBtn) {
+    subcatCloseBtn.addEventListener("click", closeEditSubcategoryModal);
+  }
+  if (subcatCancelBtn) {
+    subcatCancelBtn.addEventListener("click", closeEditSubcategoryModal);
+  }
+  if (subcatSaveBtn) {
+    subcatSaveBtn.addEventListener("click", saveEditSubcategory);
+  }
+  if (subcatInput) {
+    subcatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveEditSubcategory();
+      } else if (e.key === "Escape") {
+        closeEditSubcategoryModal();
+      }
+    });
+  }
+  if (subcatModal) {
+    subcatModal.addEventListener("click", (e) => {
+      if (e.target === subcatModal) closeEditSubcategoryModal();
+    });
+  }
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && modal && modal.classList.contains("open")) {
-      closeModal("categories-modal");
+    if (e.key === "Escape") {
+      if (subcatModal && subcatModal.classList.contains("open")) {
+        closeEditSubcategoryModal();
+      } else if (modal && modal.classList.contains("open")) {
+        closeModal("categories-modal");
+      }
     }
   });
 }
@@ -3200,12 +3570,109 @@ function closeDocumentPreview() {
   }
 }
 
+function printImageDirect(imgSrc) {
+  let printFrame = document.getElementById("clean-image-print-frame");
+  if (printFrame) {
+    try { printFrame.remove(); } catch (e) {}
+  }
+
+  printFrame = document.createElement("iframe");
+  printFrame.id = "clean-image-print-frame";
+  printFrame.style.position = "fixed";
+  printFrame.style.top = "-9999px";
+  printFrame.style.left = "-9999px";
+  printFrame.style.width = "10px";
+  printFrame.style.height = "10px";
+  printFrame.style.border = "none";
+  printFrame.style.opacity = "0";
+  printFrame.style.pointerEvents = "none";
+  document.body.appendChild(printFrame);
+
+  const doc = printFrame.contentWindow.document;
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="UTF-8">
+      <title></title>
+      <style>
+        @page {
+          size: auto;
+          margin: 0;
+        }
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        html, body {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          overflow: hidden;
+        }
+        img {
+          max-width: 100vw;
+          max-height: 100vh;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+          display: block;
+          margin: auto;
+          border: none;
+          box-shadow: none;
+          border-radius: 0;
+        }
+      </style>
+    </head>
+    <body>
+      <img src="${imgSrc}" id="target-img" />
+    </body>
+    </html>
+  `);
+  doc.close();
+
+  const printImg = doc.getElementById("target-img");
+  const doPrint = () => {
+    try {
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    } catch (err) {
+      console.warn("Print frame failed, fallback to window.print", err);
+      window.print();
+    }
+  };
+
+  if (printImg && printImg.complete) {
+    setTimeout(doPrint, 250);
+  } else if (printImg) {
+    printImg.onload = () => setTimeout(doPrint, 250);
+    printImg.onerror = () => window.print();
+  } else {
+    setTimeout(doPrint, 300);
+  }
+}
+
 async function executeDocumentPrint(doc) {
   if (!doc) doc = currentPreviewDoc;
   if (!doc) return;
 
   showToast(`🖨️ กำลังส่งพิมพ์เอกสาร "${doc.title}"`, "info");
 
+  // 1. กรณีเป็นรูปภาพ (เช่น ภาพถ่ายเอกสาร/บัตรประชาชน/ใบสมัคร) สั่งพิมพ์รูปเดี่ยวแบบไร้หัวกระดาษและเลขหน้าเว็บ
+  const img = document.querySelector("#preview-modal-body img");
+  if (img && img.src) {
+    printImageDirect(img.src);
+    return;
+  }
+
+  // 2. กรณีเป็น PDF: สั่งพิมพ์ผ่าน iframe ของ PDF โดยตรง
   const iframe = document.querySelector("#preview-modal-body iframe");
   if (iframe && iframe.contentWindow) {
     try {
@@ -3217,7 +3684,20 @@ async function executeDocumentPrint(doc) {
     }
   }
 
+  // 3. กรณีแบบฟอร์มมาตรฐานสาขา (Sheet template): ซ่อนชื่อเว็บในหัวกระดาษชั่วคราวแล้วสั่งพิมพ์
+  const origTitle = document.title;
+  const restoreTitle = () => {
+    document.title = origTitle;
+    window.removeEventListener("afterprint", restoreTitle);
+  };
+  window.addEventListener("afterprint", restoreTitle);
+  document.title = "";
+
   window.print();
+
+  setTimeout(() => {
+    document.title = origTitle;
+  }, 1000);
 }
 
 async function triggerDocumentPrint(doc) {

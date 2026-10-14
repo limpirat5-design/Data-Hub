@@ -496,6 +496,41 @@
     </div>
   </div>
 
+  <!-- ===== Subcategory Edit Modal ===== -->
+  <div class="modal-overlay" id="subcat-edit-modal" aria-hidden="true">
+    <div class="modal-container" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon-wrap" style="background:#e0e7ff;color:#4f46e5;font-size:18px;">
+            🏷️
+          </div>
+          <div>
+            <h2 class="modal-title" id="subcat-edit-modal-title">แก้ไขชื่อหมวดย่อย</h2>
+            <p class="modal-subtitle" id="subcat-edit-modal-sub">หมวดหมู่: ...</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="subcat-edit-close" aria-label="ปิด">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding: 20px 24px;">
+        <input type="hidden" id="subcat-edit-catid">
+        <input type="hidden" id="subcat-edit-oldname">
+        <div class="upload-form-row">
+          <label class="upload-label">ชื่อหมวดย่อย <span style="color:#ef4444">*</span></label>
+          <input type="text" class="upload-input" id="subcat-edit-input" placeholder="พิมพ์ชื่อหมวดย่อย..." autocomplete="off">
+        </div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:6px;line-height:1.4;" id="subcat-edit-hint">
+          💡 หากเปลี่ยนชื่อ ระบบจะอัปเดตแท็กในเอกสารทั้งหมดที่เกี่ยวข้องให้โดยอัตโนมัติ
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 14px 24px;">
+        <button type="button" class="modal-btn-secondary" id="subcat-edit-cancel">ยกเลิก</button>
+        <button type="button" class="modal-btn-primary" id="subcat-edit-save">💾 บันทึกชื่อใหม่</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Branch Login Modal ===== -->
   <div class="modal-overlay" id="login-modal" aria-hidden="true">
     <div class="modal-container login-modal-container">
