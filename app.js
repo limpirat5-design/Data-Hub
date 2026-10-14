@@ -730,7 +730,7 @@ function openLoginModal(canClose = false) {
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.className = "login-submit-btn btn-disabled";
-    submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
+    submitBtn.innerHTML = "ระบุรหัสสาขาเพื่อเข้าใช้งาน";
   }
 
   // รีเซ็ตการซ่อนรหัสเป็น password เสมอ
@@ -793,7 +793,7 @@ function updateLoginDetection(code) {
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.className = "login-submit-btn btn-disabled";
-      submitBtn.innerHTML = "🔒 ระบุรหัสสาขาที่ถูกต้องเพื่อเข้าใช้งาน";
+      submitBtn.innerHTML = "ระบุรหัสสาขาเพื่อเข้าใช้งาน";
     }
     return;
   }
@@ -807,7 +807,7 @@ function updateLoginDetection(code) {
       codeInput.classList.add("input-valid");
       codeInput.classList.remove("input-invalid");
     }
-    if (statusIcon) statusIcon.innerHTML = '<span style="color:#10b981;font-weight:700">✓</span>';
+    if (statusIcon) statusIcon.innerHTML = '<span style="color:#059669;font-weight:700">✓</span>';
     if (statusHint) {
       statusHint.textContent = `✓ รหัสถูกต้อง (${matched.province || "สาขาในระบบ"})`;
       statusHint.style.color = "#059669";
@@ -817,14 +817,14 @@ function updateLoginDetection(code) {
       preview.classList.remove("invalid");
       preview.style.display = "block";
     }
-    if (previewBadge) previewBadge.innerHTML = "✓ ตรวจพบสาขาที่ลงทะเบียนไว้";
+    if (previewBadge) previewBadge.innerHTML = "พร้อมเข้าใช้งาน";
     if (previewName) previewName.textContent = matched.name;
     if (previewCode) previewCode.textContent = `รหัส OC: ${matched.code}${matched.province ? ' • ' + matched.province : ''}`;
 
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.className = "login-submit-btn btn-active";
-      submitBtn.innerHTML = `🚀 เข้าสู่ระบบ (${matched.name})`;
+      submitBtn.innerHTML = `เข้าสู่ระบบ (${matched.name}) →`;
     }
   } else {
     // ไม่ใช่รหัสสาขาที่บันทึกไว้ -> ไม่อนุญาตให้ล็อกอินเด็ดขาด
@@ -833,24 +833,24 @@ function updateLoginDetection(code) {
       codeInput.classList.add("input-invalid");
       codeInput.classList.remove("input-valid");
     }
-    if (statusIcon) statusIcon.innerHTML = '<span style="color:#ef4444;font-weight:700">✕</span>';
+    if (statusIcon) statusIcon.innerHTML = '<span style="color:#e11d48;font-weight:700">✕</span>';
     if (statusHint) {
       statusHint.textContent = "✕ ไม่พบรหัสในระบบ";
-      statusHint.style.color = "#dc2626";
+      statusHint.style.color = "#e11d48";
     }
     if (preview) {
       preview.classList.remove("valid");
       preview.classList.add("invalid");
       preview.style.display = "block";
     }
-    if (previewBadge) previewBadge.innerHTML = "⚠️ ไม่พบรหัสสาขานี้ในระบบ";
+    if (previewBadge) previewBadge.innerHTML = "ไม่พบรหัสสาขานี้ในระบบ";
     if (previewName) previewName.textContent = `รหัส "${clean}" ไม่สามารถเข้าใช้งานได้`;
     if (previewCode) previewCode.textContent = "เฉพาะ 15 สาขาที่ลงทะเบียนไว้เท่านั้นที่สามารถเข้าใช้งานได้";
 
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.className = "login-submit-btn btn-disabled";
-      submitBtn.innerHTML = "🔒 รหัสไม่ถูกต้อง ไม่สามารถเข้าใช้งานได้";
+      submitBtn.innerHTML = "รหัสไม่ถูกต้อง ไม่สามารถเข้าใช้งานได้";
     }
   }
 }

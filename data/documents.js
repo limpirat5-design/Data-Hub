@@ -9,7 +9,7 @@ let CATEGORIES = [
     id: "new_loans",
     name: "สินเชื่อใหม่ / จำนำทะเบียน",
     icon: "file-text",
-    color: "#6366f1",
+    color: "#7c5cfc",
     subcategories: [
       "รถจักรยานยนต์ (มอเตอร์ไซค์)",
       "รถยนต์ส่วนบุคคล / รถกระบะ",
@@ -22,7 +22,7 @@ let CATEGORIES = [
     id: "refinance",
     name: "รีไฟแนนซ์ & ย้ายไฟแนนซ์",
     icon: "refresh-cw",
-    color: "#0ea5e9",
+    color: "#0284c7",
     subcategories: [
       "หนังสือมอบอำนาจปิดบัญชี / ย้ายไฟแนนซ์",
       "แบบขอตรวจสอบภาระหนี้เดิม",
@@ -33,7 +33,7 @@ let CATEGORIES = [
     id: "income_kyc",
     name: "เอกสารแสดงรายได้ & KYC",
     icon: "user-check",
-    color: "#10b981",
+    color: "#059669",
     subcategories: [
       "หนังสือรับรองรายได้ / สลิปเงินเดือน",
       "แบบสำรวจอาชีพอิสระ / เอกสารเกษตรกร",
@@ -44,7 +44,7 @@ let CATEGORIES = [
     id: "branch_requests",
     name: "แบบคำขอ & งานบริการสาขา",
     icon: "clipboard-list",
-    color: "#f59e0b",
+    color: "#d97706",
     subcategories: [
       "แบบคำขอเปลี่ยนแปลงเงื่อนไข / พักชำระหนี้ / ผ่อนผัน",
       "คำขอโอนกรรมสิทธิ์ / ปิดบัญชี / เบิกเล่มทะเบียนคืน",
@@ -56,7 +56,7 @@ let CATEGORIES = [
     id: "sale_sheets",
     name: "สื่อส่งเสริมการขาย & Sale Sheet",
     icon: "trending-up",
-    color: "#ef4444",
+    color: "#e11d48",
     subcategories: [
       "ตารางอัตราดอกเบี้ยและค่างวด (Rate Sheet ล่าสุด)",
       "สรุปผลิตภัณฑ์ประจำเดือน (Sale Sheet)",
