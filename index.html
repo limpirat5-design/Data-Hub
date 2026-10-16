@@ -6,6 +6,7 @@
   <title>Branch Smart Document Hub — ศูนย์รวมเอกสารสาขา</title>
   <meta name="description" content="ศูนย์รวมเอกสารสาขา ค้นหาแบบฟอร์มสินเชื่อ สัญญา และสื่อส่งเสริมการขายเวอร์ชันล่าสุด">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="email-templates.css">
 </head>
 <body>
 
@@ -60,8 +61,8 @@
     </div>
   </nav>
 
-  <!-- ===== Main Content ===== -->
-  <main class="app-wrapper">
+  <!-- ===== Main Content: Documents View ===== -->
+  <main class="app-wrapper" id="main-docs-view">
 
     <!-- Hero / Welcome -->
     <section class="hero-section">
@@ -119,7 +120,333 @@
       </div>
     </section>
 
+    <!-- ===== Email Templates Section (รวมอยู่ในหน้าหลักเดียวกัน) ===== -->
+    <section class="email-templates-section" id="email-templates-section">
+      <div class="section-heading">
+        <div class="section-heading-left" style="display:flex;align-items:center;gap:10px;">
+          <h2>📧 รูปแบบอีเมลนำเสนอ & ขออนุมัติ</h2>
+          <span class="doc-section-badge" id="email-section-count-badge" style="background:#fff3ec;color:#f26522;border:1.5px solid #fed7aa;font-weight:600;">4 รูปแบบ</span>
+        </div>
+        <div class="email-heading-actions" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn-manage-cats" id="btn-clear-sample" title="ล้างแม่แบบตัวอย่างออก เพื่อเริ่มจากหน้าเปล่าของคุณเอง" style="color:#ef4444;border-color:#fecaca;">
+            🗑️ เริ่มหน้าเปล่า
+          </button>
+          <button type="button" class="btn-manage-cats" id="btn-restore-sample" style="display:none;color:#ea580c;border-color:#fed7aa;" title="โหลดแม่แบบตัวอย่างกลับมา">
+            🔄 โหลดตัวอย่าง
+          </button>
+          <button type="button" class="btn-manage-cats" id="btn-presentation-mode" title="โหมดนำเสนอเต็มจอ">
+            📺 โหมดนำเสนอ
+          </button>
+          <button type="button" class="btn-manage-cats" id="btn-export-data" title="สำรองแม่แบบเมล">
+            💾 สำรอง
+          </button>
+          <button type="button" class="btn-manage-cats" id="btn-import-data" title="กู้คืนแม่แบบเมล">
+            📥 กู้คืน
+          </button>
+          <input type="file" id="file-import-input" accept=".json" style="display:none;">
+          <button type="button" class="btn-add-doc-section" id="btn-new-template" style="background:linear-gradient(135deg, #f26522 0%, #ea580c 100%);color:#fff;border:none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>+ แปะข้อความอีเมล (หน้าเปล่า)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Integrated Email Card Component -->
+      <div class="email-hub-card">
+        <!-- Sub-filter bar (Category pills & template search) -->
+        <div class="email-hub-topbar">
+          <div class="email-filter-pills-row">
+            <span class="auto-tag-indicator">⚡ หมวดหมู่อัตโนมัติ:</span>
+            <div class="category-pills" id="category-pills">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+          <div class="email-search-input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="global-search" placeholder="ค้นหาแม่แบบเมล เช่น ปิดบัญชี, บัตรหาย...">
+            <button id="clear-search" class="btn-icon-subtle" style="display:none;">✕</button>
+          </div>
+        </div>
+
+        <!-- 2-Column Workplace -->
+        <div class="email-hub-columns">
+          <!-- Sidebar: List of templates -->
+          <div class="email-hub-list-pane">
+            <div class="template-list-scroll">
+              <div class="template-list" id="template-list">
+                <!-- Rendered by JS -->
+              </div>
+              <div class="empty-list" id="empty-list" style="display:none;">
+                <p>ไม่พบรูปแบบอีเมลที่ค้นหา</p>
+                <small>ลองเปลี่ยนคำค้นหา หรือกดปุ่ม "+ แปะข้อความอีเมล"</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Stage: Realistic Outlook Preview -->
+          <div class="email-hub-preview-pane">
+            <div class="preview-toolbar">
+              <div class="toolbar-left">
+                <span class="preview-mode-tag">
+                  <span class="live-dot"></span> พรีวิว Outlook เสมือนจริง
+                </span>
+                <span class="current-cat-badge" id="preview-category-badge">หมวดหมู่</span>
+              </div>
+              <div class="toolbar-right">
+                <button id="btn-copy-email" class="tool-btn tool-btn-primary" title="คัดลอกข้อความไปวางใน Outlook ได้ทันที">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <span>คัดลอกข้อความ</span>
+                </button>
+                <button id="btn-edit-current" class="tool-btn" title="แก้ไขแม่แบบนี้">
+                  ✏️ แก้ไข
+                </button>
+                <button id="btn-duplicate-current" class="tool-btn" title="ทำซ้ำ">
+                  📑 ทำซ้ำ
+                </button>
+                <button id="btn-delete-current" class="tool-btn tool-btn-danger" title="ลบ">
+                  🗑️
+                </button>
+              </div>
+            </div>
+
+            <div class="mail-viewport-wrapper">
+              <div class="outlook-mail-card" id="outlook-mail-card">
+                <!-- Empty State (When starting blank / no template selected) -->
+                <div class="mail-empty-state" id="mail-empty-state" style="display:none;text-align:center;padding:50px 20px;">
+                  <div style="font-size:46px;margin-bottom:12px;">📋</div>
+                  <h3 style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">หน้าเปล่าพร้อมใช้งาน (รวบรวมอีเมล)</h3>
+                  <p style="font-size:14px;color:#64748b;max-width:440px;margin:0 auto 20px;line-height:1.6;">
+                    นำข้อความอีเมลที่คุณเคยส่งไว้ใน Outlook มาแปะวางเพื่อรวบรวมจัดเก็บไว้ที่นี่ได้ทันที คัดลอกและค้นหาง่าย
+                  </p>
+                  <button type="button" id="btn-empty-add-first" class="btn-add-doc-section" style="margin:0 auto;background:linear-gradient(135deg, #f26522 0%, #ea580c 100%);color:#fff;border:none;padding:10px 22px;font-size:14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>+ แปะข้อความอีเมลของคุณ</span>
+                  </button>
+                  <div style="margin-top:20px;">
+                    <button type="button" id="btn-empty-restore-samples" style="background:none;border:none;color:#94a3b8;font-size:12.5px;cursor:pointer;text-decoration:underline;">
+                      (หรือคลิกที่นี่หากต้องการโหลดแม่แบบตัวอย่างกลับมา)
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Active Mail View -->
+                <div id="mail-card-content">
+                  <!-- Header -->
+                  <div class="mail-header-row">
+                    <div class="mail-avatar-col">
+                      <div class="user-avatar" id="view-avatar">AL</div>
+                      <span class="user-status-dot"></span>
+                    </div>
+                    <div class="mail-meta-col">
+                      <div class="mail-sender-line">
+                        <span class="sender-name" id="view-sender-name">Anusat Limpirat</span>
+                      </div>
+                      <div class="mail-recipient-line">
+                        <span class="recipient-label">ถึง:</span>
+                        <span class="recipient-badge-dot">🔴</span>
+                        <span class="recipient-name" id="view-recipient-name">Nattawut Boonprakopporn (Arm)</span>
+                      </div>
+                    </div>
+                    <div class="mail-actions-col">
+                      <div class="mail-quick-icons">
+                        <button class="mail-icon-btn" title="ถูกใจ/ความรู้สึก">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                        </button>
+                        <button class="mail-icon-btn" title="ตอบกลับ">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                        </button>
+                        <button class="mail-icon-btn" title="ตอบกลับทุกคน">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
+                        </button>
+                        <button class="mail-icon-btn" title="ส่งต่อ">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                        </button>
+                        <span class="icon-divider"></span>
+                        <button class="mail-icon-btn" title="ย้ายโฟลเดอร์">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                        </button>
+                        <button class="mail-icon-btn" title="แอปอื่นๆ">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                        </button>
+                        <button class="mail-icon-btn" title="คำสั่งเพิ่มเติม">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                        </button>
+                      </div>
+                      <div class="mail-timestamp" id="view-timestamp">ศ. 2026-10-09 15:13</div>
+                    </div>
+                  </div>
+
+                  <!-- Attachments Section -->
+                  <div class="mail-attachments-container" id="mail-attachments-container"></div>
+
+                  <!-- Email Body Content -->
+                  <div class="mail-body-content" id="mail-body-content"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Modal: Create / Edit Template -->
+  <div class="modal-overlay" id="edit-modal" aria-hidden="true">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="modal-title">📝 เพิ่มรูปแบบอีเมล (วางข้อความได้ทันที)</h3>
+          <p class="modal-desc">นำข้อความอีเมลที่เคยส่งมาแปะวางลงในช่องเพื่อรวบรวมจัดเก็บได้ทันที</p>
+        </div>
+        <button class="btn-close-modal" id="btn-close-modal" aria-label="ปิดหน้าต่าง">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 24px;">
+        <form id="template-form" onsubmit="event.preventDefault(); saveTemplateFromForm();">
+          <input type="hidden" id="form-template-id">
+
+          <!-- Row 1: Title and Auto-Category -->
+          <div class="form-grid-2" style="margin-bottom: 14px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="form-title">ชื่อเรื่อง / หัวข้อการขออนุมัติ <span class="required">*</span></label>
+              <input type="text" id="form-title" class="form-input" placeholder="พิมพ์ชื่อเรื่อง เช่น ขออนุมัติเบิกเล่มทะเบียนลูกค้าปิดบัญชี" required>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="form-category">
+                หมวดหมู่
+                <span class="auto-tag-badge" id="auto-detected-badge">⚡ ตรวจจับอัตโนมัติ</span>
+              </label>
+              <div class="input-with-action">
+                <input type="text" id="form-category" class="form-input" placeholder="ระบบจะวิเคราะห์จากข้อความให้อัตโนมัติ">
+                <button type="button" id="btn-suggest-cat" class="btn-subtle" title="วิเคราะห์หมวด">✨ วิเคราะห์</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Big Blank Paste Textarea -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="form-raw-body" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:13.5px;font-weight:600;color:#1e293b;">ข้อความอีเมล (หน้าเปล่า วางข้อความที่นี่) <span class="required">*</span></span>
+              <span style="font-size:12px;color:#f26522;font-weight:600;">📋 แปะข้อความเมลที่เคยส่งได้ทั้งก้อน (Ctrl + V)</span>
+            </label>
+            <textarea id="form-raw-body" class="form-input" rows="11" style="font-family:inherit;font-size:14px;line-height:1.65;padding:12px 14px;" placeholder="แปะข้อความอีเมลที่นี่ได้เลย เช่น:
+
+เรียน ผู้อำนวยการเขต
+
+สาขาเขาช่องพราน ขออนุมัติเบิกเล่มทะเบียนลูกค้าปิดบัญชี
+• ลูกค้าชื่อ นาย จิรครินทร์ ลิ้มพิรัตน์
+• เลขที่สัญญา 700003897045
+• เลขทะเบียน บท 3493 ราชบุรี
+• ยอดปิด 135,650.25 บาท
+
+สถานะ ในระบบ ปิดบัญชีเรียบร้อยครับ" required></textarea>
+          </div>
+
+          <!-- Optional Accordion for Metadata (Sender, Recipient, Attachments) -->
+          <details style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
+            <summary style="font-size:13px;font-weight:600;color:#64748b;cursor:pointer;user-select:none;">
+              ⚙️ ตั้งค่าเพิ่มเติม (ชื่อผู้ส่ง, ผู้รับ, เอกสารแนบ - ไม่ระบุก็ได้)
+            </summary>
+            
+            <div style="margin-top:14px;">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="form-sender">ชื่อผู้ส่ง (และตัวย่อ)</label>
+                  <div class="form-subgrid">
+                    <input type="text" id="form-sender-avatar" class="form-input text-center" style="max-width:65px;" placeholder="AL" maxlength="3">
+                    <input type="text" id="form-sender" class="form-input" placeholder="เช่น Anusat Limpirat">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="form-recipient">ชื่อผู้รับ</label>
+                  <input type="text" id="form-recipient" class="form-input" placeholder="เช่น Nattawut Boonprakopporn (Arm)">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>รูปแบบเอกสารแนบ</label>
+                <div class="radio-pill-group">
+                  <label class="radio-pill">
+                    <input type="radio" name="attachment_type" value="none" checked>
+                    <span>ไม่มีเอกสารแนบ</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="attachment_type" value="file">
+                    <span>📄 แนบไฟล์ PDF</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="attachment_type" value="gallery">
+                    <span>🖼️ แกลเลอรีรูปภาพ</span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="attachment-file-fields" class="form-group sub-panel" style="display:none;">
+                <div class="form-grid-2">
+                  <div>
+                    <label for="form-doc-name">ชื่อไฟล์เอกสาร</label>
+                    <input type="text" id="form-doc-name" class="form-input" placeholder="เอกสารแนบ.pdf">
+                  </div>
+                  <div>
+                    <label for="form-doc-size">ขนาดไฟล์</label>
+                    <input type="text" id="form-doc-size" class="form-input" placeholder="4 เมกะไบต์">
+                  </div>
+                </div>
+              </div>
+
+              <div id="attachment-gallery-fields" class="form-group sub-panel" style="display:none;">
+                <label>แกลเลอรีภาพแนบ (3 รูป)</label>
+                <div class="form-grid-3">
+                  <div>
+                    <label class="sub-label">รูปที่ 1</label>
+                    <input type="text" id="form-img1-label" class="form-input" placeholder="รูปถ่ายลูกค้า">
+                  </div>
+                  <div>
+                    <label class="sub-label">รูปที่ 2</label>
+                    <input type="text" id="form-img2-label" class="form-input" placeholder="รูปบัตรไชโย">
+                  </div>
+                  <div>
+                    <label class="sub-label">รูปที่ 3</label>
+                    <input type="text" id="form-img3-label" class="form-input" placeholder="รูปเอกสารคำขอ">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-cancel-modal">ยกเลิก</button>
+        <button type="button" class="btn-primary" id="btn-save-template" style="background:#f26522;border-color:#f26522;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>💾 บันทึกแม่แบบ</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox for Image Zoom -->
+  <div class="lightbox-overlay" id="lightbox-overlay" style="display:none;">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="lightbox-close">✕</button>
+      <img id="lightbox-img" src="" alt="ภาพขยาย">
+      <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toast"></div>
+
+  <!-- Presentation Exit Floating Bar -->
+  <div class="presentation-exit-bar" id="presentation-exit-bar" style="display:none;">
+    <span>📺 โหมดนำเสนอเต็มจอ (Presentation View)</span>
+    <button id="btn-exit-presentation" class="btn-exit-pres">ออกจากโหมดนำเสนอ (Esc)</button>
+  </div>
 
   <!-- ===== Upload Modal ===== -->
   <div class="modal-overlay" id="upload-modal" aria-hidden="true">
@@ -694,6 +1021,7 @@
   <script src="data/documents.js"></script>
   <script src="ai-assistant.js"></script>
   <script src="app.js"></script>
+  <script src="email-templates.js"></script>
 </body>
 </html>
 

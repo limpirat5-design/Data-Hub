@@ -38,6 +38,9 @@ const ICONS = {
 };
 
 function icon(name) {
+  if (name === "mail") {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`;
+  }
   return ICONS[name] || ICONS["file-text"] || "";
 }
 
@@ -209,6 +212,9 @@ function getTop5() {
 // Count docs per category
 // ========================
 function getCategoryCount(catId) {
+  if (catId === "email_templates") {
+    return typeof templates !== "undefined" ? templates.length : 4;
+  }
   return DOCUMENTS.filter(d => d.category_id === catId && d.status === "active").length;
 }
 
@@ -275,6 +281,12 @@ function renderCategories() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const catId = btn.dataset.catid;
+      if (catId === "email_templates") {
+        if (typeof openEditModal === "function") {
+          openEditModal();
+        }
+        return;
+      }
       openUploadForCategory(catId);
     });
   });
@@ -284,6 +296,13 @@ function renderCategories() {
     card.addEventListener("click", (e) => {
       if (e.target.closest(".cat-quick-add-btn")) return;
       const catId = card.dataset.category;
+      if (catId === "email_templates") {
+        const sec = document.getElementById("email-templates-section");
+        if (sec) {
+          sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
       if (state.activeCategory === catId) {
         state.activeCategory = null;
         state.activeSubcategory = null;
