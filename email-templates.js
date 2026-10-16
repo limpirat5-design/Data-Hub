@@ -523,10 +523,12 @@ function renderActiveEmail() {
     }
   }
 
-  // 3. Body Content (Render raw pasted email text cleanly)
+  // 3. Body Content (Render rich formatted HTML or fallback to raw email text)
   const bodyContainer = document.getElementById("mail-body-content");
   if (bodyContainer) {
-    if (t.rawBody) {
+    if (t.richBody) {
+      bodyContainer.innerHTML = t.richBody;
+    } else if (t.rawBody) {
       bodyContainer.innerHTML = renderRawEmailBody(t.rawBody);
     } else {
       let bulletHtml = "";
@@ -692,6 +694,12 @@ function openEditModal(templateToEdit = null) {
     const recipientInput = document.getElementById("form-recipient");
     if (recipientInput) recipientInput.value = templateToEdit.recipientName || "Nattawut Boonprakopporn (Arm)";
 
+    // Rich Editor content
+    const richEditor = document.getElementById("form-rich-editor");
+    if (richEditor) {
+      richEditor.innerHTML = templateToEdit.richBody || renderRawEmailBody(templateToEdit.rawBody || generateRawBodyFromTemplate(templateToEdit));
+    }
+
     const attachType = templateToEdit.attachmentType || "none";
     const radio = document.querySelector(`input[name="attachment_type"][value="${attachType}"]`);
     if (radio) radio.checked = true;
@@ -703,11 +711,14 @@ function openEditModal(templateToEdit = null) {
       if (docSize) docSize.value = templateToEdit.attachmentData.fileSize || "";
     }
   } else {
-    if (modalTitle) modalTitle.textContent = "📝 วางข้อความอีเมล (หน้ารวบรวมเปล่า)";
+    if (modalTitle) modalTitle.textContent = "📝 วางข้อความอีเมล & จัดรูปแบบสี (หน้าเปล่า)";
     document.getElementById("form-template-id").value = "";
     if (titleInput) titleInput.value = "";
     if (catInput) catInput.value = "";
     if (rawBodyInput) rawBodyInput.value = "";
+
+    const richEditor = document.getElementById("form-rich-editor");
+    if (richEditor) richEditor.innerHTML = "";
 
     const senderInput = document.getElementById("form-sender");
     if (senderInput) senderInput.value = "Anusat Limpirat";
@@ -726,9 +737,14 @@ function openEditModal(templateToEdit = null) {
   modal.style.display = "flex";
   document.body.style.overflow = "hidden";
 
-  // Auto-focus rawBodyInput directly so user can immediately paste with Ctrl+V!
+  // Auto-focus richEditor directly so user can immediately paste with Ctrl+V!
   setTimeout(() => {
-    if (rawBodyInput) rawBodyInput.focus();
+    const richEditor = document.getElementById("form-rich-editor");
+    if (richEditor) {
+      richEditor.focus();
+    } else if (rawBodyInput) {
+      rawBodyInput.focus();
+    }
   }, 100);
 }
 
@@ -754,8 +770,11 @@ function toggleAttachmentFields() {
 }
 
 function saveTemplateFromForm() {
+  const richEditor = document.getElementById("form-rich-editor");
   const rawBodyInput = document.getElementById("form-raw-body");
-  const rawBody = rawBodyInput ? rawBodyInput.value.trim() : "";
+  
+  const richBody = richEditor ? richEditor.innerHTML.trim() : "";
+  const rawBody = richEditor ? richEditor.innerText.trim() : (rawBodyInput ? rawBodyInput.value.trim() : "");
 
   let title = document.getElementById("form-title").value.trim();
   if (!title) {
@@ -769,7 +788,7 @@ function saveTemplateFromForm() {
       title = candidate.slice(0, 75) || `อีเมลบันทึก ${formatCurrentThaiDate()}`;
     } else {
       showToast("⚠️ กรุณาวางข้อความอีเมลหรือระบุชื่อเรื่อง");
-      if (rawBodyInput) rawBodyInput.focus();
+      if (richEditor) richEditor.focus();
       return;
     }
   }
@@ -849,6 +868,7 @@ function saveTemplateFromForm() {
     senderAvatar,
     recipientName,
     rawBody,
+    richBody,
     salutation,
     subjectIntro,
     bulletItems,
@@ -950,8 +970,20 @@ async function copyCurrentEmailToClipboard() {
   if (!t) return;
 
   const plain = t.rawBody || generateRawBodyFromTemplate(t);
+  const html = t.richBody || renderRawEmailBody(plain);
 
   try {
+    if (navigator.clipboard && window.ClipboardItem) {
+      const blobHtml = new Blob([html], { type: "text/html" });
+      const blobText = new Blob([plain], { type: "text/plain" });
+      const item = new ClipboardItem({
+        "text/html": blobHtml,
+        "text/plain": blobText
+      });
+      await navigator.clipboard.write([item]);
+      showToast("📋 คัดลอกพร้อมฟอร์แมตสีแล้ว! วางใน Outlook ได้สวยงามทันที");
+      return;
+    }
     await navigator.clipboard.writeText(plain);
     showToast("📋 คัดลอกข้อความแล้ว! วางใน Outlook ได้ทันที");
   } catch (err) {
@@ -1123,13 +1155,116 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-empty-add-first")?.addEventListener("click", () => openEditModal());
   document.getElementById("btn-empty-restore-samples")?.addEventListener("click", restoreSampleTemplates);
 
-  // Paste raw text auto title & category detection
+  // Paste raw text auto title & category detection in rich editor
+  const richEditor = document.getElementById("form-rich-editor");
   const rawBodyInput = document.getElementById("form-raw-body");
+
+  if (richEditor) {
+    richEditor.addEventListener("input", () => {
+      const text = richEditor.innerText;
+      if (rawBodyInput) rawBodyInput.value = text;
+      autoExtractTitleAndCategoryFromRaw(text);
+    });
+
+    richEditor.addEventListener("paste", () => {
+      setTimeout(() => {
+        const text = richEditor.innerText;
+        if (rawBodyInput) rawBodyInput.value = text;
+        autoExtractTitleAndCategoryFromRaw(text);
+      }, 50);
+    });
+  }
+
   if (rawBodyInput) {
     rawBodyInput.addEventListener("input", () => {
       autoExtractTitleAndCategoryFromRaw(rawBodyInput.value);
     });
   }
+
+  // --- Rich Formatting Toolbar Handlers ---
+  // 1. Text commands (Bold, Italic, Underline, Bullet)
+  document.querySelectorAll(".fmt-tool-btn[data-cmd]").forEach(btn => {
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault(); // Keep selection
+      const cmd = btn.getAttribute("data-cmd");
+      document.execCommand(cmd, false, null);
+    });
+  });
+
+  // 2. Color dots
+  document.querySelectorAll(".fmt-color-dot[data-color]").forEach(dot => {
+    dot.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const color = dot.getAttribute("data-color");
+      document.execCommand("foreColor", false, color);
+    });
+  });
+
+  // 3. Custom text color picker
+  const pickerColor = document.getElementById("picker-text-color");
+  if (pickerColor) {
+    pickerColor.addEventListener("input", (e) => {
+      document.execCommand("foreColor", false, e.target.value);
+    });
+  }
+
+  // 4. Highlight dots
+  document.querySelectorAll(".fmt-hl-dot[data-hl]").forEach(dot => {
+    dot.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const hl = dot.getAttribute("data-hl");
+      if (hl === "transparent") {
+        document.execCommand("removeFormat", false, null);
+      } else {
+        document.execCommand("hiliteColor", false, hl);
+      }
+    });
+  });
+
+  // 5. Quick template insertion chips
+  document.querySelectorAll(".fmt-chip[data-insert]").forEach(chip => {
+    chip.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const snippet = chip.getAttribute("data-insert");
+      if (snippet === "• ") {
+        document.execCommand("insertUnorderedList", false, null);
+      } else {
+        document.execCommand("insertHTML", false, ` ${snippet} `);
+      }
+    });
+  });
+
+  // 6. Magic Auto-Format Button
+  document.getElementById("btn-magic-format")?.addEventListener("click", () => {
+    if (!richEditor) return;
+    const currentText = richEditor.innerText.trim();
+    if (!currentText) {
+      showToast("⚠️ กรุณาวางหรือพิมพ์ข้อความก่อนจัดรูปแบบ");
+      richEditor.focus();
+      return;
+    }
+    richEditor.innerHTML = renderRawEmailBody(currentText);
+    autoExtractTitleAndCategoryFromRaw(currentText);
+    showToast("✨ จัดสี & รูปแบบสถานะอัตโนมัติเรียบร้อย!");
+  });
+
+  // --- Zoom font buttons in Outlook Preview ---
+  const zoomBtns = [
+    { id: "btn-zoom-sm", cls: "zoom-small" },
+    { id: "btn-zoom-md", cls: "" },
+    { id: "btn-zoom-lg", cls: "zoom-large" }
+  ];
+  zoomBtns.forEach(({ id, cls }) => {
+    document.getElementById(id)?.addEventListener("click", () => {
+      const bodyEl = document.getElementById("mail-body-content");
+      if (bodyEl) {
+        bodyEl.classList.remove("zoom-small", "zoom-large");
+        if (cls) bodyEl.classList.add(cls);
+      }
+      zoomBtns.forEach(b => document.getElementById(b.id)?.classList.remove("active"));
+      document.getElementById(id)?.classList.add("active");
+    });
+  });
 
   // Auto-category suggestion in form
   const formTitle = document.getElementById("form-title");
@@ -1154,7 +1289,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btn-suggest-cat")?.addEventListener("click", () => {
     const title = formTitle ? formTitle.value : "";
-    const rawVal = rawBodyInput ? rawBodyInput.value : "";
+    const rawVal = richEditor ? richEditor.innerText : (rawBodyInput ? rawBodyInput.value : "");
     const detected = detectCategoryAutomatically(rawVal || title);
     if (formCategory) {
       formCategory.value = detected;

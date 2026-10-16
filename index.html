@@ -193,6 +193,11 @@
                 <span class="current-cat-badge" id="preview-category-badge">หมวดหมู่</span>
               </div>
               <div class="toolbar-right">
+                <div class="zoom-btn-group" title="ปรับขนาดตัวอักษรสำหรับพรีวิว">
+                  <button type="button" class="zoom-btn" id="btn-zoom-sm" title="ขนาดเล็ก">A-</button>
+                  <button type="button" class="zoom-btn active" id="btn-zoom-md" title="ขนาดปกติ">A</button>
+                  <button type="button" class="zoom-btn" id="btn-zoom-lg" title="ขนาดใหญ่ (ฉายจอ)">A+</button>
+                </div>
                 <button id="btn-copy-email" class="tool-btn tool-btn-primary" title="คัดลอกข้อความไปวางใน Outlook ได้ทันที">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                   <span>คัดลอกข้อความ</span>
@@ -326,23 +331,88 @@
             </div>
           </div>
 
-          <!-- Big Blank Paste Textarea -->
+          <!-- Rich Formatting Toolbar & Blank Paste Editor -->
           <div class="form-group" style="margin-bottom: 14px;">
-            <label for="form-raw-body" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:13.5px;font-weight:600;color:#1e293b;">ข้อความอีเมล (หน้าเปล่า วางข้อความที่นี่) <span class="required">*</span></span>
-              <span style="font-size:12px;color:#f26522;font-weight:600;">📋 แปะข้อความเมลที่เคยส่งได้ทั้งก้อน (Ctrl + V)</span>
+            <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:13.5px;font-weight:600;color:#1e293b;">ข้อความอีเมล & จัดฟอร์แมตสี <span class="required">*</span></span>
+              <span style="font-size:12px;color:#f26522;font-weight:600;">📋 แปะข้อความ (Ctrl + V) แล้วไฮไลต์ข้อความเพื่อเปลี่ยนสีได้ทันที</span>
             </label>
-            <textarea id="form-raw-body" class="form-input" rows="11" style="font-family:inherit;font-size:14px;line-height:1.65;padding:12px 14px;" placeholder="แปะข้อความอีเมลที่นี่ได้เลย เช่น:
 
-เรียน ผู้อำนวยการเขต
+            <!-- Toolbar Ribbon -->
+            <div class="editor-toolbar-wrap">
+              <div class="formatting-toolbar" id="formatting-toolbar">
+                <!-- Group 1: Style -->
+                <div class="fmt-group">
+                  <button type="button" class="fmt-tool-btn" data-cmd="bold" title="ตัวหนา (Ctrl+B)"><b>B</b></button>
+                  <button type="button" class="fmt-tool-btn" data-cmd="italic" title="ตัวเอียง (Ctrl+I)"><i>I</i></button>
+                  <button type="button" class="fmt-tool-btn" data-cmd="underline" title="ขีดเส้นใต้ (Ctrl+U)"><u>U</u></button>
+                </div>
 
-สาขาเขาช่องพราน ขออนุมัติเบิกเล่มทะเบียนลูกค้าปิดบัญชี
-• ลูกค้าชื่อ นาย จิรครินทร์ ลิ้มพิรัตน์
-• เลขที่สัญญา 700003897045
-• เลขทะเบียน บท 3493 ราชบุรี
-• ยอดปิด 135,650.25 บาท
+                <div class="fmt-divider"></div>
 
-สถานะ ในระบบ ปิดบัญชีเรียบร้อยครับ" required></textarea>
+                <!-- Group 2: Font Colors -->
+                <div class="fmt-group">
+                  <span class="fmt-title">สีตัวอักษร:</span>
+                  <button type="button" class="fmt-color-dot" data-color="#d93829" style="background:#d93829;" title="สีแดง (ปิดบัญชี/ยอดเงิน)"></button>
+                  <button type="button" class="fmt-color-dot" data-color="#ea580c" style="background:#ea580c;" title="สีส้ม (Auto X)"></button>
+                  <button type="button" class="fmt-color-dot" data-color="#16a34a" style="background:#16a34a;" title="สีเขียว (อนุมัติแล้ว)"></button>
+                  <button type="button" class="fmt-color-dot" data-color="#0078d4" style="background:#0078d4;" title="สีน้ำเงิน (Outlook)"></button>
+                  <button type="button" class="fmt-color-dot" data-color="#7c3aed" style="background:#7c3aed;" title="สีม่วง"></button>
+                  <button type="button" class="fmt-color-dot" data-color="#1e293b" style="background:#1e293b;" title="สีดำเข้มปกติ"></button>
+                  <label class="fmt-custom-color-label" title="เลือกสีอื่นๆ">
+                    <input type="color" id="picker-text-color" value="#d93829">
+                    <span>🎨</span>
+                  </label>
+                </div>
+
+                <div class="fmt-divider"></div>
+
+                <!-- Group 3: Highlights -->
+                <div class="fmt-group">
+                  <span class="fmt-title">ไฮไลต์:</span>
+                  <button type="button" class="fmt-hl-dot" data-hl="#fef08a" style="background:#fef08a;" title="ไฮไลต์เหลือง"></button>
+                  <button type="button" class="fmt-hl-dot" data-hl="#fee2e2" style="background:#fee2e2;" title="ไฮไลต์ชมพู/แดงอ่อน"></button>
+                  <button type="button" class="fmt-hl-dot" data-hl="#dcfce7" style="background:#dcfce7;" title="ไฮไลต์เขียวอ่อน"></button>
+                  <button type="button" class="fmt-hl-dot" data-hl="#e0f2fe" style="background:#e0f2fe;" title="ไฮไลต์ฟ้าอ่อน"></button>
+                  <button type="button" class="fmt-hl-dot fmt-clear-hl" data-hl="transparent" title="ล้างสีไฮไลต์">✕</button>
+                </div>
+
+                <div class="fmt-divider"></div>
+
+                <!-- Group 4: Bullets & Lists -->
+                <div class="fmt-group">
+                  <button type="button" class="fmt-tool-btn" data-cmd="insertUnorderedList" title="จุดไข่ปลา Bullet">• รายการ</button>
+                </div>
+
+                <!-- Group 5: Magic Auto-Color Button -->
+                <div class="fmt-group" style="margin-left:auto;">
+                  <button type="button" class="fmt-magic-btn" id="btn-magic-format" title="คลิก 1 ครั้ง เพื่อใส่สีแดงสถานะและตัวหนาเลขสัญญา/ยอดเงินให้อัตโนมัติ">
+                    ✨ จัดสี & รูปแบบอัตโนมัติ
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Template Insertion Chips -->
+            <div class="fmt-quick-chips">
+              <span class="chips-label">⚡ แทรกรูปแบบด่วน:</span>
+              <button type="button" class="fmt-chip chip-red" data-insert="<span style='color:#d93829;font-weight:700;'>สถานะ ในระบบ ปิดบัญชีเรียบร้อยครับ</span>">
+                🔴 ปิดบัญชีเรียบร้อย
+              </button>
+              <button type="button" class="fmt-chip chip-green" data-insert="<span style='color:#16a34a;font-weight:700;'>สถานะ ในระบบ อนุมัติเรียบร้อยครับ</span>">
+                🟢 อนุมัติเรียบร้อย
+              </button>
+              <button type="button" class="fmt-chip chip-orange" data-insert="<span style='color:#ea580c;font-weight:700;'>สถานะ รอผู้อำนวยการเขตพิจารณาอนุมัติครับ</span>">
+                🟠 รอพิจารณา
+              </button>
+              <button type="button" class="fmt-chip" data-insert="• ">
+                • จุดไข่ปลา
+              </button>
+            </div>
+
+            <!-- Rich Editable Area -->
+            <div id="form-rich-editor" class="form-rich-editor" contenteditable="true" spellcheck="false" data-placeholder="แปะข้อความอีเมลที่นี่ได้เลยครับ (Ctrl + V)... ลากคลุมข้อความเพื่อเลือกเปลี่ยนสีหรือทำตัวหนาได้ทันที"></div>
+            <textarea id="form-raw-body" style="display:none;"></textarea>
           </div>
 
           <!-- Optional Accordion for Metadata (Sender, Recipient, Attachments) -->
