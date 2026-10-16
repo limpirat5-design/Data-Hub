@@ -40,6 +40,7 @@ async function fetchCloudDocuments() {
     const { data, error } = await client
       .from("documents")
       .select("*")
+      .neq("category_id", "system_email_templates")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -47,10 +48,116 @@ async function fetchCloudDocuments() {
       return { success: false, error: error.message, docs: [] };
     }
 
-    return { success: true, docs: data || [] };
+    const realDocs = (data || []).filter(d => !d.doc_id.startsWith("SYS_"));
+    return { success: true, docs: realDocs };
   } catch (err) {
     console.warn("Cloud fetch exception:", err);
     return { success: false, error: err.message, docs: [] };
+  }
+}
+
+/**
+ * ดึงข้อมูลรูปแบบอีเมลทั้งหมดจาก Cloud กลาง (Supabase)
+ */
+async function fetchCloudEmailTemplates() {
+  const client = getCloudClient();
+  if (!client) return { success: false, templates: null };
+
+  try {
+    const { data, error } = await client
+      .from("documents")
+      .select("changelog_summary, effective_date")
+      .eq("doc_id", "SYS_EMAIL_TEMPLATES_V1")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Supabase email templates fetch error:", error);
+      return { success: false, error: error.message, templates: null };
+    }
+
+    if (!data || !data.changelog_summary) {
+      return { success: true, templates: null }; // ยังไม่เคยมีข้อมูลใน Cloud
+    }
+
+    const parsed = JSON.parse(data.changelog_summary);
+    return { success: true, templates: Array.isArray(parsed) ? parsed : [] };
+  } catch (err) {
+    console.warn("Cloud email templates exception:", err);
+    return { success: false, error: err.message, templates: null };
+  }
+}
+
+/**
+ * บันทึกรูปแบบอีเมลทั้งหมดขึ้น Cloud กลาง (Supabase)
+ */
+async function saveEmailTemplatesToCloud(templatesArray) {
+  const client = getCloudClient();
+  if (!client) return { success: false, error: "Cloud not configured" };
+
+  try {
+    const jsonStr = JSON.stringify(templatesArray);
+    const { error } = await client
+      .from("documents")
+      .upsert({
+        doc_id: "SYS_EMAIL_TEMPLATES_V1",
+        category_id: "system_email_templates",
+        subcategory: "email_templates",
+        title: "Email Templates Central Store",
+        changelog_summary: jsonStr,
+        status: "system",
+        effective_date: new Date().toISOString(),
+        last_updated_by: "Email Hub Sync"
+      });
+
+    if (error) {
+      console.warn("Supabase email templates save error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.warn("Cloud email templates save exception:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Realtime Listener สำหรับรูปแบบอีเมล: เมื่อเครื่องอื่นแก้ไข หน้าจอจะอัปเดตให้อัตโนมัติทันที
+ */
+function listenToEmailTemplatesRealtime(onUpdateCallback) {
+  const client = getCloudClient();
+  if (!client) return null;
+
+  try {
+    const channel = client
+      .channel("email-templates-realtime-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "documents",
+          filter: "doc_id=eq.SYS_EMAIL_TEMPLATES_V1"
+        },
+        (payload) => {
+          if (payload && payload.new && payload.new.changelog_summary) {
+            try {
+              const updatedTemplates = JSON.parse(payload.new.changelog_summary);
+              if (Array.isArray(updatedTemplates) && typeof onUpdateCallback === "function") {
+                onUpdateCallback(updatedTemplates);
+              }
+            } catch (e) {
+              console.warn("Parse realtime templates error:", e);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  } catch (err) {
+    console.warn("Realtime email subscription error:", err);
+    return null;
   }
 }
 

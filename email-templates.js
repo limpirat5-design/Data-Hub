@@ -204,6 +204,7 @@ let templates = [];
 let activeTemplateId = null;
 let currentFilterCategory = "all";
 let currentSearchQuery = "";
+let isSyncingFromCloud = false;
 
 function loadTemplates() {
   try {
@@ -212,20 +213,105 @@ function loadTemplates() {
       templates = JSON.parse(raw);
     } else {
       templates = [...INITIAL_TEMPLATES];
-      saveTemplates();
+      saveTemplates(false);
     }
   } catch (e) {
     console.error("Error reading localStorage", e);
     templates = [...INITIAL_TEMPLATES];
   }
+
+  // Trigger Automatic Cloud Sync in background
+  initCloudSync();
 }
 
-function saveTemplates() {
+async function initCloudSync() {
+  if (typeof isCloudConfigured !== "function" || !isCloudConfigured() || typeof fetchCloudEmailTemplates !== "function") {
+    updateCloudStatusBadge("local");
+    return;
+  }
+
+  updateCloudStatusBadge("syncing");
+
+  try {
+    const cloudRes = await fetchCloudEmailTemplates();
+    if (cloudRes.success) {
+      if (cloudRes.templates && Array.isArray(cloudRes.templates) && cloudRes.templates.length > 0) {
+        // Cloud has existing templates! Load and cache in localStorage
+        templates = cloudRes.templates;
+        saveTemplates(false);
+        renderCategoryPills();
+        renderTemplateList();
+        updateCloudStatusBadge("online");
+        showToast("☁️ ซิงค์ข้อมูลล่าสุดจาก Cloud เรียบร้อย ทุกเครื่องเห็นตรงกัน");
+      } else {
+        // Cloud is empty, seed it with current templates from this machine
+        await saveEmailTemplatesToCloud(templates);
+        updateCloudStatusBadge("online");
+      }
+    } else {
+      updateCloudStatusBadge("error");
+    }
+
+    // Subscribe to Realtime Updates from other machines
+    if (typeof listenToEmailTemplatesRealtime === "function") {
+      listenToEmailTemplatesRealtime((updatedTemplates) => {
+        if (!Array.isArray(updatedTemplates)) return;
+        isSyncingFromCloud = true;
+        templates = updatedTemplates;
+        saveTemplates(false);
+        renderCategoryPills();
+        renderTemplateList();
+        isSyncingFromCloud = false;
+        showToast("🔄 ได้รับข้อมูลรูปแบบอีเมลที่อัปเดตจากเครื่องอื่นแล้ว");
+      });
+    }
+  } catch (err) {
+    console.warn("Cloud sync exception:", err);
+    updateCloudStatusBadge("error");
+  }
+}
+
+function saveTemplates(pushToCloud = true) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
   } catch (e) {
     console.error("Error saving localStorage", e);
     showToast("⚠️ ไม่สามารถบันทึกข้อมูลลงเครื่องได้");
+  }
+
+  // Synchronize to Cloud Database
+  if (pushToCloud && !isSyncingFromCloud && typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveEmailTemplatesToCloud === "function") {
+    updateCloudStatusBadge("syncing");
+    saveEmailTemplatesToCloud(templates).then(res => {
+      if (res && res.success) {
+        updateCloudStatusBadge("online");
+      } else {
+        updateCloudStatusBadge("error");
+      }
+    });
+  }
+}
+
+function updateCloudStatusBadge(status) {
+  const badge = document.getElementById("email-cloud-status-badge");
+  if (!badge) return;
+
+  if (status === "online") {
+    badge.className = "cloud-sync-badge online";
+    badge.innerHTML = `<span class="cloud-sync-dot"></span><span>☁️ Cloud ซิงค์ทุกเครื่อง</span>`;
+    badge.title = "เชื่อมต่อ Cloud Database สำเร็จ ทุกเครื่องเห็นข้อมูลเดียวกันแบบ Real-time";
+  } else if (status === "syncing") {
+    badge.className = "cloud-sync-badge syncing";
+    badge.innerHTML = `<span class="cloud-sync-dot"></span><span>🔄 กำลังซิงค์...</span>`;
+    badge.title = "กำลังรับ-ส่งข้อมูลกับ Cloud Database กลาง";
+  } else if (status === "error") {
+    badge.className = "cloud-sync-badge error";
+    badge.innerHTML = `<span class="cloud-sync-dot"></span><span>⚠️ โหมดในเครื่อง (เน็ตขัดข้อง)</span>`;
+    badge.title = "ไม่สามารถเชื่อมต่อ Cloud ได้ ระบบจะบันทึกในเครื่องแทน";
+  } else {
+    badge.className = "cloud-sync-badge local";
+    badge.innerHTML = `<span>💾 โหมดในเครื่อง</span>`;
+    badge.title = "ทำงานในเครื่อง";
   }
 }
 
