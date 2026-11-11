@@ -1,4 +1,7 @@
-:root {
+.email-templates-section,
+#edit-modal,
+.app-layout,
+.app-header {
   --font-base: 'IBM Plex Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-en: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
@@ -23,14 +26,6 @@
 
   --avatar-bg: #e8a29b;         /* Coral / Salmon pink from user image */
   --avatar-text: #ffffff;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
 }
 
 /* ==========================================================================
@@ -536,13 +531,16 @@
 }
 
 .preview-toolbar {
-  height: 52px;
+  min-height: 52px;
+  height: auto;
   background: #ffffff;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
+  padding: 10px 24px;
+  gap: 10px;
+  flex-wrap: wrap;
   position: sticky;
   top: 0;
   z-index: 5;
@@ -551,7 +549,8 @@
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .preview-mode-tag {
@@ -584,6 +583,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .tool-btn {
@@ -965,10 +965,34 @@ body.presentation-mode {
   background: #111827;
 }
 
+body.presentation-mode .top-nav,
+body.presentation-mode .hero-section,
+body.presentation-mode .categories-section,
+body.presentation-mode .quick-access-section,
+body.presentation-mode .documents-section,
+body.presentation-mode .email-templates-section > .section-heading,
+body.presentation-mode .email-hub-topbar,
+body.presentation-mode .email-hub-list-pane,
+body.presentation-mode #ai-fab,
 body.presentation-mode .app-header,
 body.presentation-mode .app-sidebar,
 body.presentation-mode .preview-toolbar {
   display: none !important;
+}
+
+body.presentation-mode .email-templates-section {
+  margin: 0 !important;
+  padding: 24px 0 !important;
+}
+
+body.presentation-mode .email-hub-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+body.presentation-mode .email-hub-preview-pane {
+  background: transparent !important;
 }
 
 body.presentation-mode .app-layout {
@@ -984,7 +1008,7 @@ body.presentation-mode .preview-stage {
 
 body.presentation-mode .outlook-mail-card {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 .presentation-exit-bar {
@@ -1060,7 +1084,7 @@ body.presentation-mode .outlook-mail-card {
   transform: translateY(0) scale(1) !important;
 }
 
-.modal-header {
+#edit-modal .modal-header {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -1068,19 +1092,19 @@ body.presentation-mode .outlook-mail-card {
   justify-content: space-between;
 }
 
-.modal-title-group h3 {
+#edit-modal .modal-title-group h3 {
   font-size: 17px;
   font-weight: 700;
   color: #111827;
 }
 
-.modal-desc {
+#edit-modal .modal-desc {
   font-size: 12.5px;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
-.btn-close-modal {
+#edit-modal .btn-close-modal {
   background: none;
   border: none;
   font-size: 18px;
@@ -1090,18 +1114,18 @@ body.presentation-mode .outlook-mail-card {
   border-radius: 4px;
 }
 
-.btn-close-modal:hover {
+#edit-modal .btn-close-modal:hover {
   color: var(--text-main);
   background: #f3f4f6;
 }
 
-.modal-body {
+#edit-modal .modal-body {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
 }
 
-.modal-footer {
+#edit-modal .modal-footer {
   padding: 16px 24px;
   background: #fafafa;
   border-top: 1px solid var(--border-subtle);
