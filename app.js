@@ -282,8 +282,8 @@ function renderCategories() {
       e.stopPropagation();
       const catId = btn.dataset.catid;
       if (catId === "email_templates") {
-        if (typeof openEditModal === "function") {
-          openEditModal();
+        if (typeof openEmailTemplateModal === "function") {
+          openEmailTemplateModal();
         }
         return;
       }
@@ -538,7 +538,7 @@ function renderDocuments() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const docId = btn.dataset.docid;
-      openEditModal(docId);
+      openEditDocModal(docId);
     });
   });
 
@@ -561,8 +561,11 @@ function renderDocuments() {
       const docId = btn.dataset.docid;
       const doc = DOCUMENTS.find(d => d.doc_id === docId);
       if (doc) {
-        doc.download_count++;
+        doc.download_count = (doc.download_count || 0) + 1;
         saveDocumentsToStorage();
+        if (typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveDocumentToCloud === "function") {
+          saveDocumentToCloud(doc);
+        }
         showToast(`กำลังดาวน์โหลด "${doc.title}" (${doc.version})`, "success");
         await triggerDocumentDownload(doc);
         renderQuickAccess();
@@ -688,6 +691,9 @@ function setActiveBranch(branch) {
     localStorage.setItem("branch_hub_active_branch", JSON.stringify(branch));
   } catch (e) {}
   updateBranchBadgeUI(branch);
+  if (typeof renderActiveEmail === "function") {
+    renderActiveEmail();
+  }
 }
 
 function clearActiveBranch() {
@@ -697,6 +703,9 @@ function clearActiveBranch() {
     sessionStorage.removeItem("branch_hub_active_branch");
   } catch (e) {}
   updateBranchBadgeUI(null);
+  if (typeof renderActiveEmail === "function") {
+    renderActiveEmail();
+  }
 }
 
 function updateBranchBadgeUI(branch) {
@@ -1005,9 +1014,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAIChat();
   initDocumentPreviewModal();
 
-  // Cloud Sync (ถ้าตั้งค่า Supabase ไว้ จะดึงเอกสารกลางจากทุกสาขาอัตโนมัติ)
+  // Cloud Sync (ถ้าตั้งค่า Supabase ไว้ จะดึงเอกสารและหมวดหมู่กลางจากทุกสาขาอัตโนมัติ)
   if (typeof isCloudConfigured === "function" && isCloudConfigured()) {
     showToast("☁️ กำลังเชื่อมต่อ Cloud Storage กลาง...", "info");
+
+    if (typeof fetchCloudCategories === "function") {
+      const catRes = await fetchCloudCategories();
+      if (catRes.success && Array.isArray(catRes.categories) && catRes.categories.length > 0) {
+        CATEGORIES.length = 0;
+        CATEGORIES.push(...catRes.categories);
+        ensureEmailTemplateCategoryExists();
+        saveCategoriesToStorage(false);
+        refreshAllCategoryUI();
+      }
+    }
+
     const cloudRes = await fetchCloudDocuments();
     if (cloudRes.success) {
       DOCUMENTS.length = 0;
@@ -1021,7 +1042,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Realtime Listener: เมื่อสาขาอื่นอัปเดต หน้าจอจะรีเฟรชให้เองทันที
-    listenToCloudRealtime(async () => {
+    listenToCloudRealtime(async (payload) => {
+      if (payload && payload.new && payload.new.doc_id === "SYS_CATEGORIES_V1") {
+        if (typeof fetchCloudCategories === "function") {
+          const catRes = await fetchCloudCategories();
+          if (catRes.success && Array.isArray(catRes.categories) && catRes.categories.length > 0) {
+            CATEGORIES.length = 0;
+            CATEGORIES.push(...catRes.categories);
+            ensureEmailTemplateCategoryExists();
+            saveCategoriesToStorage(false);
+            refreshAllCategoryUI();
+          }
+        }
+        return;
+      }
+      if (payload && payload.new && String(payload.new.doc_id || "").startsWith("SYS_")) {
+        return;
+      }
       const updated = await fetchCloudDocuments();
       if (updated.success) {
         DOCUMENTS.length = 0;
@@ -1031,7 +1068,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderSubFilters();
         renderQuickAccess();
         renderDocuments();
-        showToast("🔔 มีเอกสารใหม่เข้ามาจากสาขาอื่น", "info");
+        showToast("🔔 อัปเดตข้อมูลเอกสารล่าสุดจากสาขาอื่นแล้ว", "info");
       }
     });
   }
@@ -1126,8 +1163,10 @@ function initUploadModal() {
   // ESC to close modals
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      if ($("#upload-modal").classList.contains("open")) closeUploadModal();
-      if ($("#confirm-modal").classList.contains("open")) closeModal("confirm-modal");
+      if ($("#upload-modal")?.classList.contains("open")) closeUploadModal();
+      if ($("#edit-doc-modal")?.classList.contains("open")) closeEditDocModal();
+      if ($("#doc-preview-modal")?.classList.contains("open")) closeDocumentPreview();
+      if ($("#confirm-modal")?.classList.contains("open")) closeModal("confirm-modal");
     }
   });
 
@@ -1412,8 +1451,12 @@ function initUploadModal() {
         }
       }
 
-      // กรณีที่ 2: บันทึกเป็นเอกสารใหม่
-      const nextNum = DOCUMENTS.length + 1;
+      // กรณีที่ 2: บันทึกเป็นเอกสารใหม่ (หารหัสสูงสุดเพื่อไม่ให้ซ้ำแม้เคยลบเอกสารออก)
+      const maxNum = DOCUMENTS.reduce((max, d) => {
+        const m = String(d.doc_id || "").match(/^DOC-(\d+)$/i);
+        return m ? Math.max(max, parseInt(m[1], 10)) : max;
+      }, 0);
+      const nextNum = maxNum + 1;
       const newDocId = "DOC-" + String(nextNum).padStart(3, "0");
       let fileUrl = "files/" + filename;
 
@@ -1863,7 +1906,7 @@ function updateEditSubcategories(catId, selectedSubs = null) {
   renderSubcategoryCheckboxes("edit-subcategories-group", catId, selectedSubs || []);
 }
 
-function openEditModal(docId) {
+function openEditDocModal(docId) {
   const doc = DOCUMENTS.find(d => d.doc_id === docId);
   if (!doc) {
     showToast("ไม่พบเอกสารที่ต้องการแก้ไข", "error");
@@ -1895,7 +1938,7 @@ function openEditModal(docId) {
   openModal("edit-doc-modal");
 }
 
-function closeEditModal() {
+function closeEditDocModal() {
   closeModal("edit-doc-modal");
   currentEditDoc = null;
   selectedEditFile = null;
@@ -1925,10 +1968,10 @@ function initEditModal() {
   }
 
   // Close handlers
-  if (closeBtn) closeBtn.addEventListener("click", closeEditModal);
-  if (cancelBtn) cancelBtn.addEventListener("click", closeEditModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeEditDocModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", closeEditDocModal);
   modal.addEventListener("click", (e) => {
-    if (e.target === modal) closeEditModal();
+    if (e.target === modal) closeEditDocModal();
   });
 
   // Category change cascade
@@ -2015,14 +2058,31 @@ function initEditModal() {
       saveBtn.disabled = true;
 
       try {
+        const normalizedVer = version.startsWith("v") ? version : "v" + version;
+        const isVersionChanged = currentEditDoc.version && currentEditDoc.version !== normalizedVer;
+
+        // บันทึกประวัติเวอร์ชันเดิม (Version History) เมื่อมีการเปลี่ยนเลขเวอร์ชันหรืออัปโหลดไฟล์ใหม่
+        if (isVersionChanged || selectedEditFile) {
+          if (!Array.isArray(currentEditDoc.history)) currentEditDoc.history = [];
+          currentEditDoc.history.unshift({
+            version: currentEditDoc.version || "v1.0",
+            effective_date: currentEditDoc.effective_date,
+            file_name: currentEditDoc.file_name,
+            download_url: currentEditDoc.download_url,
+            changelog_summary: currentEditDoc.changelog_summary,
+            updated_by: currentEditDoc.last_updated_by || "สาขา",
+            archived_at: new Date().toISOString()
+          });
+        }
+
         currentEditDoc.category_id = $("#edit-category").value;
         currentEditDoc.subcategories = checkedEditSubs;
         currentEditDoc.subcategory = checkedEditSubs.join(", ");
         currentEditDoc.title = title;
-        currentEditDoc.version = version;
+        currentEditDoc.version = normalizedVer;
         currentEditDoc.status = $("#edit-status").value;
         currentEditDoc.effective_date = $("#edit-date").value || new Date().toISOString().slice(0, 10);
-        currentEditDoc.changelog_summary = $("#edit-changelog").value.trim() || `อัปเดตเวอร์ชัน ${version}`;
+        currentEditDoc.changelog_summary = $("#edit-changelog").value.trim() || `อัปเดตเวอร์ชัน ${normalizedVer}`;
         if (currentBranch) {
           currentEditDoc.last_updated_by = `${currentBranch.name} (${currentBranch.code})`;
         }
@@ -2091,7 +2151,7 @@ function initEditModal() {
             await deleteDocumentFromCloud(targetDoc.doc_id);
           }
 
-          closeEditModal();
+          closeEditDocModal();
           renderCategories();
           renderSubFilters();
           renderQuickAccess();
@@ -2137,6 +2197,15 @@ function showConfirm(title, message, iconEmoji, onConfirm) {
 // =============================================
 const DEFAULT_CATEGORIES_DATA = JSON.parse(JSON.stringify(CATEGORIES));
 
+function ensureEmailTemplateCategoryExists() {
+  if (!CATEGORIES.some(c => c.id === "email_templates")) {
+    const emailCat = DEFAULT_CATEGORIES_DATA.find(c => c.id === "email_templates");
+    if (emailCat) {
+      CATEGORIES.push(JSON.parse(JSON.stringify(emailCat)));
+    }
+  }
+}
+
 function loadStoredCategories() {
   try {
     const saved = localStorage.getItem("branch_hub_categories");
@@ -2145,6 +2214,7 @@ function loadStoredCategories() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         CATEGORIES.length = 0;
         CATEGORIES.push(...parsed);
+        ensureEmailTemplateCategoryExists();
       }
     }
   } catch (e) {
@@ -2152,11 +2222,14 @@ function loadStoredCategories() {
   }
 }
 
-function saveCategoriesToStorage() {
+function saveCategoriesToStorage(pushToCloud = true) {
   try {
     localStorage.setItem("branch_hub_categories", JSON.stringify(CATEGORIES));
   } catch (e) {
     console.warn("Could not save categories to localStorage:", e);
+  }
+  if (pushToCloud && typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveCategoriesToCloud === "function") {
+    saveCategoriesToCloud(CATEGORIES);
   }
 }
 
@@ -2822,25 +2895,28 @@ function initDataBackup() {
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
       try {
+        const emailTemplatesList = typeof templates !== "undefined" && Array.isArray(templates) ? templates : [];
         const backupData = {
           app: "Branch Smart Document Hub",
-          version: "1.0.0",
+          version: "1.1.0",
           export_date: new Date().toISOString(),
           total_documents: DOCUMENTS.length,
+          total_email_templates: emailTemplatesList.length,
           categories: CATEGORIES,
-          documents: DOCUMENTS
+          documents: DOCUMENTS,
+          email_templates: emailTemplatesList
         };
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         const dateStr = new Date().toISOString().split("T")[0];
         a.href = url;
-        a.download = `smart-documents-backup-${dateStr}.json`;
+        a.download = `smart-hub-full-backup-${dateStr}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showToast("📦 สำรองข้อมูลสำเร็จ (ดาวน์โหลดไฟล์ JSON เรียบร้อย)", "success");
+        showToast("📦 สำรองข้อมูลทั้งระบบสำเร็จ (เอกสาร + หมวดหมู่ + แม่แบบอีเมล)", "success");
       } catch (err) {
         showToast("เกิดข้อผิดพลาดในการสำรองข้อมูล", "error");
       }
@@ -2860,37 +2936,56 @@ function initDataBackup() {
       reader.onload = (event) => {
         try {
           const json = JSON.parse(event.target.result);
-          const docs = Array.isArray(json) ? json : json.documents;
+          const docs = Array.isArray(json.documents) ? json.documents : (Array.isArray(json) && json[0]?.doc_id ? json : []);
           const importedCats = Array.isArray(json.categories) ? json.categories : null;
+          const importedTemplates = Array.isArray(json.email_templates)
+            ? json.email_templates
+            : (Array.isArray(json) && json[0]?.id?.startsWith("tpl-") ? json : null);
 
-          if (!Array.isArray(docs) || docs.length === 0) {
-            showToast("รูปแบบไฟล์ JSON ไม่ถูกต้องหรือไม่พบรายการเอกสาร", "error");
+          if (docs.length === 0 && !importedCats && !importedTemplates) {
+            showToast("รูปแบบไฟล์ JSON ไม่ถูกต้องหรือไม่พบข้อมูลสำหรับกู้คืน", "error");
             return;
           }
 
-          const isValid = docs.every(d => d.doc_id && d.title && d.category_id);
-          if (!isValid) {
-            showToast("โครงสร้างเอกสารไม่ถูกต้อง ขาด doc_id, title หรือ category_id", "error");
-            return;
+          if (docs.length > 0) {
+            const isValid = docs.every(d => d.doc_id && d.title && d.category_id);
+            if (!isValid) {
+              showToast("โครงสร้างเอกสารไม่ถูกต้อง ขาด doc_id, title หรือ category_id", "error");
+              return;
+            }
           }
 
-          const catMsg = importedCats && importedCats.length > 0 ? ` และหมวดหมู่ ${importedCats.length} หมวด` : "";
+          const partsMsg = [];
+          if (docs.length > 0) partsMsg.push(`เอกสาร ${docs.length} รายการ`);
+          if (importedCats && importedCats.length > 0) partsMsg.push(`หมวดหมู่ ${importedCats.length} หมวด`);
+          if (importedTemplates && importedTemplates.length > 0) partsMsg.push(`แม่แบบอีเมล ${importedTemplates.length} รายการ`);
+
           showConfirm(
-            "กู้คืนข้อมูลเอกสาร",
-            `พบข้อมูลเอกสาร ${docs.length} รายการ${catMsg} ต้องการนำเข้าและแทนที่ข้อมูลในระบบหรือไม่?`,
+            "กู้คืนข้อมูลเข้าสู่ระบบ",
+            `พบข้อมูล ${partsMsg.join(" • ")} ต้องการนำเข้าและแทนที่ข้อมูลในระบบหรือไม่?`,
             "📥",
             () => {
               if (importedCats && importedCats.length > 0) {
                 CATEGORIES.length = 0;
                 CATEGORIES.push(...importedCats);
+                ensureEmailTemplateCategoryExists();
                 saveCategoriesToStorage();
               }
-              DOCUMENTS.length = 0;
-              DOCUMENTS.push(...docs);
-              saveDocumentsToStorage();
+              if (docs.length > 0) {
+                DOCUMENTS.length = 0;
+                DOCUMENTS.push(...docs);
+                saveDocumentsToStorage();
+              }
+              if (importedTemplates && typeof templates !== "undefined") {
+                templates.length = 0;
+                templates.push(...importedTemplates);
+                if (typeof saveTemplates === "function") saveTemplates();
+                if (typeof renderCategoryPills === "function") renderCategoryPills();
+                if (typeof renderTemplateList === "function") renderTemplateList();
+              }
               refreshAllCategoryUI();
               renderQuickAccess();
-              showToast(`✅ กู้คืนข้อมูลสำเร็จ (${docs.length} รายการ)`, "success");
+              showToast(`✅ กู้คืนข้อมูลสำเร็จ (${partsMsg.join(", ")})`, "success");
             }
           );
         } catch (err) {
@@ -3208,7 +3303,7 @@ function renderAIDocuments(docs) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const docId = btn.dataset.docid;
-      openEditModal(docId);
+      openEditDocModal(docId);
     });
   });
 
@@ -3230,8 +3325,11 @@ function renderAIDocuments(docs) {
       const docId = btn.dataset.docid;
       const doc = DOCUMENTS.find(d => d.doc_id === docId);
       if (doc) {
-        doc.download_count++;
+        doc.download_count = (doc.download_count || 0) + 1;
         saveDocumentsToStorage();
+        if (typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveDocumentToCloud === "function") {
+          saveDocumentToCloud(doc);
+        }
         showToast(`กำลังดาวน์โหลด: ${doc.title} (${doc.version})`, "success");
         await triggerDocumentDownload(doc);
         renderQuickAccess();
@@ -3404,10 +3502,11 @@ async function openDocumentPreview(doc, autoPrint = false) {
   const bodyEl = $("#preview-modal-body");
 
   const cat = CATEGORIES.find(c => c.id === doc.category_id);
-  const catName = cat ? cat.title : "ทั่วไป";
+  const catName = cat ? (cat.name || cat.title) : "ทั่วไป";
   const subNames = (doc.subcategories && doc.subcategories.length > 0)
     ? doc.subcategories.join(", ")
     : (doc.subcategory || "ทุกกลุ่มการใช้งาน");
+  const cleanDocCode = String(doc.doc_id || "").startsWith("DOC-") ? doc.doc_id : `DOC-${doc.doc_id}`;
 
   if (titleEl) titleEl.textContent = doc.title;
   if (verEl) {
@@ -3415,7 +3514,7 @@ async function openDocumentPreview(doc, autoPrint = false) {
     verEl.className = `status-badge ${doc.status}`;
   }
   if (metaEl) {
-    metaEl.textContent = `หมวดหมู่: ${catName} (${subNames}) • มีผล: ${formatDate(doc.effective_date)} • รหัส: DOC-${doc.doc_id}`;
+    metaEl.textContent = `หมวดหมู่: ${catName} (${subNames}) • มีผล: ${formatDate(doc.effective_date)} • รหัส: ${cleanDocCode}`;
   }
 
   if (bodyEl) {
@@ -3500,7 +3599,7 @@ async function openDocumentPreview(doc, autoPrint = false) {
                   </div>
                 </div>
                 <div class="form-sheet-meta">
-                  <div><strong>รหัสเอกสาร:</strong> DOC-${escapeHtml(doc.doc_id)}</div>
+                  <div><strong>รหัสเอกสาร:</strong> ${escapeHtml(cleanDocCode)}</div>
                   <div><strong>เวอร์ชัน:</strong> ${escapeHtml(doc.version)} (${getStatusLabel(doc.status)})</div>
                   <div><strong>วันที่มีผล:</strong> ${formatDate(doc.effective_date)}</div>
                 </div>
@@ -3551,6 +3650,19 @@ async function openDocumentPreview(doc, autoPrint = false) {
                 เอกสารนี้ออกโดยระบบ Data Hub สาขา • พิมพ์เมื่อ: ${nowStr} น.
               </div>
             </div>
+            ${Array.isArray(doc.history) && doc.history.length > 0 ? `
+              <div class="no-print" style="background:var(--bg-surface);border:1px solid var(--border-mid);border-radius:8px;padding:12px 16px;font-size:12.5px;">
+                <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px;">🕒 ประวัติการอัปเดตเวอร์ชัน (${doc.history.length} ครั้ง)</div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  ${doc.history.slice(0, 5).map(h => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg-surface-alt);border-radius:6px;gap:8px;flex-wrap:wrap;">
+                      <span><strong>${escapeHtml(h.version || "-")}</strong> — ${escapeHtml(h.changelog_summary || "ไม่มีระบุรายละเอียด")}</span>
+                      <span style="color:var(--text-tertiary);font-size:11.5px;">${h.effective_date ? formatDate(h.effective_date) : ""} (${escapeHtml(h.updated_by || "สาขา")})</span>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            ` : ""}
           </div>
         `;
 
@@ -3558,7 +3670,7 @@ async function openDocumentPreview(doc, autoPrint = false) {
         if (quickAttachBtn) {
           quickAttachBtn.addEventListener("click", () => {
             closeDocumentPreview();
-            openEditModal(doc.doc_id);
+            openEditDocModal(doc.doc_id);
           });
         }
       }
@@ -3752,8 +3864,11 @@ function initDocumentPreviewModal() {
   if (downloadBtn) {
     downloadBtn.addEventListener("click", async () => {
       if (currentPreviewDoc) {
-        currentPreviewDoc.download_count++;
+        currentPreviewDoc.download_count = (currentPreviewDoc.download_count || 0) + 1;
         saveDocumentsToStorage();
+        if (typeof isCloudConfigured === "function" && isCloudConfigured() && typeof saveDocumentToCloud === "function") {
+          saveDocumentToCloud(currentPreviewDoc);
+        }
         showToast(`กำลังดาวน์โหลด "${currentPreviewDoc.title}"`, "success");
         await triggerDocumentDownload(currentPreviewDoc);
         renderQuickAccess();
@@ -3767,7 +3882,7 @@ function initDocumentPreviewModal() {
       if (currentPreviewDoc) {
         const docId = currentPreviewDoc.doc_id;
         closeDocumentPreview();
-        openEditModal(docId);
+        openEditDocModal(docId);
       }
     });
   }

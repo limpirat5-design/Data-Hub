@@ -41,6 +41,7 @@ async function fetchCloudDocuments() {
       .from("documents")
       .select("*")
       .neq("category_id", "system_email_templates")
+      .neq("category_id", "system_categories")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -48,7 +49,7 @@ async function fetchCloudDocuments() {
       return { success: false, error: error.message, docs: [] };
     }
 
-    const realDocs = (data || []).filter(d => !d.doc_id.startsWith("SYS_"));
+    const realDocs = (data || []).filter(d => !String(d.doc_id || "").startsWith("SYS_"));
     return { success: true, docs: realDocs };
   } catch (err) {
     console.warn("Cloud fetch exception:", err);
@@ -158,6 +159,64 @@ function listenToEmailTemplatesRealtime(onUpdateCallback) {
   } catch (err) {
     console.warn("Realtime email subscription error:", err);
     return null;
+  }
+}
+
+/**
+ * ดึงข้อมูลหมวดหมู่เอกสารจาก Cloud กลาง (Supabase)
+ */
+async function fetchCloudCategories() {
+  const client = getCloudClient();
+  if (!client) return { success: false, categories: null };
+
+  try {
+    const { data, error } = await client
+      .from("documents")
+      .select("changelog_summary")
+      .eq("doc_id", "SYS_CATEGORIES_V1")
+      .maybeSingle();
+
+    if (error) {
+      return { success: false, error: error.message, categories: null };
+    }
+    if (!data || !data.changelog_summary) {
+      return { success: true, categories: null };
+    }
+    const parsed = JSON.parse(data.changelog_summary);
+    return { success: true, categories: Array.isArray(parsed) ? parsed : null };
+  } catch (err) {
+    return { success: false, error: err.message, categories: null };
+  }
+}
+
+/**
+ * บันทึกหมวดหมู่เอกสารขึ้น Cloud กลาง (Supabase)
+ */
+async function saveCategoriesToCloud(categoriesArray) {
+  const client = getCloudClient();
+  if (!client) return { success: false, error: "Cloud not configured" };
+
+  try {
+    const jsonStr = JSON.stringify(categoriesArray);
+    const { error } = await client
+      .from("documents")
+      .upsert({
+        doc_id: "SYS_CATEGORIES_V1",
+        category_id: "system_categories",
+        subcategory: "categories",
+        title: "Document Categories Central Store",
+        changelog_summary: jsonStr,
+        status: "system",
+        effective_date: new Date().toISOString(),
+        last_updated_by: "Category Sync"
+      });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 

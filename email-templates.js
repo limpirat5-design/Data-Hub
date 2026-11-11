@@ -315,6 +315,25 @@ function updateCloudStatusBadge(status) {
   }
 }
 
+// Helper: Automatically replace known branch name with currently logged-in branch
+function applyActiveBranchName(text) {
+  if (!text || typeof text !== "string") return text || "";
+  if (typeof currentBranch === "undefined" || !currentBranch || !currentBranch.name) {
+    return text;
+  }
+  let result = text;
+  if (typeof BRANCHES !== "undefined" && Array.isArray(BRANCHES)) {
+    BRANCHES.forEach(b => {
+      if (b && b.name && b.name !== currentBranch.name) {
+        result = result.split(b.name).join(currentBranch.name);
+      }
+    });
+  } else {
+    result = result.split("สาขาเขาช่องพราน").join(currentBranch.name);
+  }
+  return result;
+}
+
 // Helper: Reconstruct clean plain text from template object
 function generateRawBodyFromTemplate(t) {
   if (t.rawBody) return t.rawBody;
@@ -613,15 +632,15 @@ function renderActiveEmail() {
   const bodyContainer = document.getElementById("mail-body-content");
   if (bodyContainer) {
     if (t.richBody) {
-      bodyContainer.innerHTML = t.richBody;
+      bodyContainer.innerHTML = applyActiveBranchName(t.richBody);
     } else if (t.rawBody) {
-      bodyContainer.innerHTML = renderRawEmailBody(t.rawBody);
+      bodyContainer.innerHTML = renderRawEmailBody(applyActiveBranchName(t.rawBody));
     } else {
       let bulletHtml = "";
       if (t.bulletItems && t.bulletItems.length > 0) {
         bulletHtml = `<ul class="mail-bullet-list">`;
         t.bulletItems.forEach(item => {
-          bulletHtml += `<li>${formatBulletText(item)}</li>`;
+          bulletHtml += `<li>${formatBulletText(applyActiveBranchName(item))}</li>`;
         });
         bulletHtml += `</ul>`;
       }
@@ -634,14 +653,14 @@ function renderActiveEmail() {
               <span>${escapeHtml(t.statusPrefix || 'สถานะ')}</span>
               <span class="status-highlight-text">${escapeHtml(t.statusHighlight)}</span>
             </div>
-            ${t.footerNotes ? `<div class="mail-footer-notes">${escapeHtml(t.footerNotes)}</div>` : ''}
+            ${t.footerNotes ? `<div class="mail-footer-notes">${escapeHtml(applyActiveBranchName(t.footerNotes))}</div>` : ''}
           </div>
         `;
       }
 
       bodyContainer.innerHTML = `
         <div class="mail-salutation">${escapeHtml(t.salutation || 'เรียน ผู้อำนวยการเขต')}</div>
-        <div class="mail-subject-intro">${escapeHtml(t.subjectIntro || '')}</div>
+        <div class="mail-subject-intro">${escapeHtml(applyActiveBranchName(t.subjectIntro || ''))}</div>
         ${bulletHtml}
         ${statusHtml}
       `;
@@ -748,7 +767,7 @@ function formatBulletText(str) {
 // 5. Modal & Form Handling (Create & Edit Templates)
 // ==========================================================================
 
-function openEditModal(templateToEdit = null) {
+function openEmailTemplateModal(templateToEdit = null) {
   const modal = document.getElementById("edit-modal");
   const modalTitle = document.getElementById("modal-title");
   const form = document.getElementById("template-form");
@@ -834,7 +853,7 @@ function openEditModal(templateToEdit = null) {
   }, 100);
 }
 
-function closeEditModal() {
+function closeEmailTemplateModal() {
   const modal = document.getElementById("edit-modal");
   if (modal) {
     modal.classList.remove("open");
@@ -979,7 +998,7 @@ function saveTemplateFromForm() {
   }
 
   saveTemplates();
-  closeEditModal();
+  closeEmailTemplateModal();
   renderCategoryPills();
   renderTemplateList();
   if (typeof renderCategories === "function") {
@@ -1008,7 +1027,7 @@ function deleteCurrentTemplate() {
   const current = templates.find(t => t.id === activeTemplateId);
   if (!current) return;
 
-  if (confirm(`คุณต้องการลบเทมเพลต "${current.title}" หรือไม่?`)) {
+  const doDelete = () => {
     templates = templates.filter(t => t.id !== current.id);
     activeTemplateId = templates.length > 0 ? templates[0].id : null;
     saveTemplates();
@@ -1018,11 +1037,22 @@ function deleteCurrentTemplate() {
       renderCategories();
     }
     showToast("✓ ลบเทมเพลตเรียบร้อย");
+  };
+
+  if (typeof showConfirm === "function") {
+    showConfirm(
+      "ยืนยันการลบแม่แบบอีเมล",
+      `คุณต้องการลบแม่แบบอีเมล <strong>"${escapeHtml(current.title)}"</strong> ใช่หรือไม่?`,
+      "🗑️",
+      doDelete
+    );
+  } else if (confirm(`คุณต้องการลบเทมเพลต "${current.title}" หรือไม่?`)) {
+    doDelete();
   }
 }
 
 function clearToBlankState() {
-  if (confirm("ต้องการล้างแม่แบบตัวอย่างออกทั้งหมด เพื่อเริ่มเก็บรวบรวมอีเมลของคุณเองจากหน้าเปล่าหรือไม่?")) {
+  const doClear = () => {
     templates = [];
     activeTemplateId = null;
     saveTemplates();
@@ -1032,6 +1062,17 @@ function clearToBlankState() {
       renderCategories();
     }
     showToast("✨ เริ่มต้นหน้าเปล่าเรียบร้อย แปะอีเมลของคุณได้เลย");
+  };
+
+  if (typeof showConfirm === "function") {
+    showConfirm(
+      "เริ่มหน้าเปล่า (ล้างตัวอย่าง)",
+      "ต้องการล้างแม่แบบตัวอย่างออกทั้งหมด เพื่อเริ่มเก็บรวบรวมอีเมลของคุณเองจากหน้าเปล่าหรือไม่? (สามารถกดโหลดตัวอย่างกลับมาภายหลังได้)",
+      "🗑️",
+      doClear
+    );
+  } else if (confirm("ต้องการล้างแม่แบบตัวอย่างออกทั้งหมด เพื่อเริ่มเก็บรวบรวมอีเมลของคุณเองจากหน้าเปล่าหรือไม่?")) {
+    doClear();
   }
 }
 
@@ -1055,8 +1096,8 @@ async function copyCurrentEmailToClipboard() {
   const t = templates.find(item => item.id === activeTemplateId);
   if (!t) return;
 
-  const plain = t.rawBody || generateRawBodyFromTemplate(t);
-  const html = t.richBody || renderRawEmailBody(plain);
+  const plain = applyActiveBranchName(t.rawBody || generateRawBodyFromTemplate(t));
+  const html = t.richBody ? applyActiveBranchName(t.richBody) : renderRawEmailBody(plain);
 
   try {
     if (navigator.clipboard && window.ClipboardItem) {
@@ -1143,17 +1184,19 @@ function importBackupJSON(event) {
   reader.onload = function(e) {
     try {
       const imported = JSON.parse(e.target.result);
-      if (Array.isArray(imported)) {
-        templates = imported;
+      const list = Array.isArray(imported) ? imported : (Array.isArray(imported.email_templates) ? imported.email_templates : null);
+      if (Array.isArray(list)) {
+        templates = list;
         saveTemplates();
         renderCategoryPills();
         renderTemplateList();
-        showToast("✓ กู้คืนข้อมูลแบบฟอร์มสำเร็จ");
+        if (typeof renderCategories === "function") renderCategories();
+        showToast("✓ กู้คืนข้อมูลแบบฟอร์มอีเมลสำเร็จ");
       } else {
-        alert("ไฟล์ JSON ไม่ถูกต้องตามรูปแบบ");
+        showToast("⚠️ ไฟล์ JSON ไม่ถูกต้องตามรูปแบบ", "error");
       }
     } catch (err) {
-      alert("ไม่สามารถอ่านไฟล์ JSON ได้: " + err.message);
+      showToast("⚠️ ไม่สามารถอ่านไฟล์ JSON ได้: " + err.message, "error");
     }
   };
   reader.readAsText(file, "UTF-8");
@@ -1164,7 +1207,21 @@ function importBackupJSON(event) {
 // 10. Helper Utilities
 // ==========================================================================
 
-function showToast(msg) {
+function showToast(msg, type = "success") {
+  const container = document.getElementById("toast-container");
+  if (container) {
+    const t = document.createElement("div");
+    t.className = `toast ${type}`;
+    t.innerHTML = msg;
+    container.appendChild(t);
+    setTimeout(() => {
+      t.style.transition = "opacity 0.3s, transform 0.3s";
+      t.style.opacity = "0";
+      t.style.transform = "translateY(10px)";
+      setTimeout(() => t.remove(), 300);
+    }, 3000);
+    return;
+  }
   const toast = document.getElementById("toast");
   if (!toast) return;
   toast.textContent = msg;
@@ -1228,17 +1285,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Buttons in Toolbar & Header
-  document.getElementById("btn-new-template")?.addEventListener("click", () => openEditModal());
+  document.getElementById("btn-new-template")?.addEventListener("click", () => openEmailTemplateModal());
   document.getElementById("btn-edit-current")?.addEventListener("click", () => {
     const cur = templates.find(t => t.id === activeTemplateId);
-    if (cur) openEditModal(cur);
+    if (cur) openEmailTemplateModal(cur);
   });
   document.getElementById("btn-duplicate-current")?.addEventListener("click", duplicateCurrentTemplate);
   document.getElementById("btn-delete-current")?.addEventListener("click", deleteCurrentTemplate);
   document.getElementById("btn-copy-email")?.addEventListener("click", copyCurrentEmailToClipboard);
   document.getElementById("btn-clear-sample")?.addEventListener("click", clearToBlankState);
   document.getElementById("btn-restore-sample")?.addEventListener("click", restoreSampleTemplates);
-  document.getElementById("btn-empty-add-first")?.addEventListener("click", () => openEditModal());
+  document.getElementById("btn-empty-add-first")?.addEventListener("click", () => openEmailTemplateModal());
   document.getElementById("btn-empty-restore-samples")?.addEventListener("click", restoreSampleTemplates);
 
   // Paste raw text auto title & category detection in rich editor
@@ -1385,8 +1442,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Modal actions
-  document.getElementById("btn-close-modal")?.addEventListener("click", closeEditModal);
-  document.getElementById("btn-cancel-modal")?.addEventListener("click", closeEditModal);
+  document.getElementById("btn-close-modal")?.addEventListener("click", closeEmailTemplateModal);
+  document.getElementById("btn-cancel-modal")?.addEventListener("click", closeEmailTemplateModal);
   document.getElementById("btn-save-template")?.addEventListener("click", saveTemplateFromForm);
 
   // Attachment radio toggle
@@ -1401,7 +1458,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       togglePresentationMode(false);
-      closeEditModal();
+      closeEmailTemplateModal();
       closeLightbox();
     }
   });
